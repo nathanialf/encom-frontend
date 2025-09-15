@@ -134,18 +134,17 @@ pipeline {
                                     file: "encom-frontend-${env.BUILD_VERSION}.tar.gz",
                                     path: "artifacts/frontend/encom-frontend-latest.tar.gz"
                             
-                            echo "✅ Tarball uploaded to artifacts: s3://${artifactsBucket}/${s3KeyPrefix}.tar.gz"
+                            echo "Tarball uploaded to artifacts: s3://${artifactsBucket}/${s3KeyPrefix}.tar.gz"
                             
                             // Deploy build directory directly to hosting bucket
-                            dir('encom-frontend') {
-                                sh """
-                                    echo "🚀 Deploying to hosting bucket: ${hostingBucket}"
-                                    aws s3 sync build/ s3://${hostingBucket}/ --delete --region ${AWS_REGION}
-                                    
-                                    echo "✅ Frontend deployed successfully!"
-                                    echo "Website URL: https://${hostingBucket}.s3-website-${AWS_REGION}.amazonaws.com"
-                                """
-                            }
+                            echo "Deploying to hosting bucket: ${hostingBucket}"
+                            s3Upload bucket: hostingBucket,
+                                    includePathPattern: '**/*',
+                                    workingDir: 'encom-frontend/build',
+                                    path: ''
+                            
+                            echo "Frontend deployed successfully!"
+                            echo "Website URL: https://${hostingBucket}.s3-website-${AWS_REGION}.amazonaws.com"
                         }
                     }
                 }
