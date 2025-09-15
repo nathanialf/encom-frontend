@@ -130,6 +130,8 @@ aws s3 sync build/ s3://encom-frontend-prod-us-west-1/ --delete
 
 ## Testing
 
+Comprehensive test suite with full coverage of all components and functionality.
+
 ```bash
 # Run all tests
 npm test
@@ -137,9 +139,17 @@ npm test
 # Run tests with coverage
 npm test -- --coverage
 
-# Run tests in CI mode
+# Run tests in CI mode (for Jenkins)
 npm test -- --watchAll=false --ci
 ```
+
+### Test Coverage
+
+- **87 tests** across 6 test suites
+- **Component tests**: App, MapControls, MapStatistics
+- **Library tests**: API integration, hexagon mathematics
+- **Hook tests**: Map generation state management
+- **Features tested**: UI interactions, form validation, error handling, coordinate transformations
 
 ## Build Analysis
 

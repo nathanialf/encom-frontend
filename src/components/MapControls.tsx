@@ -17,6 +17,8 @@ export const MapControls: React.FC<MapControlsProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+    
     const request: MapGenerationRequest = {
       hexagonCount,
       ...(seed.trim() && { seed: seed.trim() })
