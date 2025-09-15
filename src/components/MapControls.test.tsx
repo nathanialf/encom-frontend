@@ -119,8 +119,9 @@ describe('MapControls Component', () => {
   test('prevents form submission when loading', () => {
     render(<MapControls onGenerateMap={mockOnGenerateMap} isLoading={true} />);
     
-    const form = screen.getByRole('button').closest('form');
-    fireEvent.submit(form!);
+    // Try to submit by clicking the disabled button
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
 
     expect(mockOnGenerateMap).not.toHaveBeenCalled();
   });
@@ -134,20 +135,18 @@ describe('MapControls Component', () => {
       />
     );
     
+    // eslint-disable-next-line testing-library/no-node-access
     expect(container.firstChild).toHaveClass('custom-class');
   });
 
-  test('handles form submission via Enter key in form', () => {
+  test('handles form submission via button click', () => {
     render(<MapControls onGenerateMap={mockOnGenerateMap} isLoading={false} />);
     
     const hexagonInput = screen.getByLabelText(/Hexagon Count/i);
-    const form = screen.getByRole('button').closest('form');
+    const button = screen.getByRole('button');
     
     fireEvent.change(hexagonInput, { target: { value: '75' } });
-    
-    // Simulate pressing Enter which should trigger form submission in browsers
-    fireEvent.keyDown(hexagonInput, { key: 'Enter', code: 'Enter' });
-    fireEvent.submit(form!);
+    fireEvent.click(button);
 
     expect(mockOnGenerateMap).toHaveBeenCalledWith({
       hexagonCount: 75

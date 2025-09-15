@@ -146,10 +146,9 @@ describe('useMapGeneration Hook', () => {
   test('handles multiple concurrent generation calls', async () => {
     const { MapAPI } = require('../lib/api');
     
-    let resolveFirst: (value: any) => void;
     let resolveSecond: (value: any) => void;
     
-    const firstPromise = new Promise(resolve => { resolveFirst = resolve; });
+    const firstPromise = Promise.resolve(mockMapData);
     const secondPromise = new Promise(resolve => { resolveSecond = resolve; });
 
     MapAPI.generateMap

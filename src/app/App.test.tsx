@@ -140,8 +140,8 @@ describe('App Component', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('canvas-with-data')).toBeInTheDocument();
-      expect(screen.getByText('Canvas with 2 hexagons')).toBeInTheDocument();
     });
+    expect(screen.getByText('Canvas with 2 hexagons')).toBeInTheDocument();
   });
 
   test('renders map statistics when available', async () => {

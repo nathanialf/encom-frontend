@@ -92,7 +92,9 @@ describe('MapStatistics Component', () => {
     render(<MapStatistics metadata={zeroMetadata} />);
     
     expect(screen.getByText('Total Hexagons:')).toBeInTheDocument();
-    expect(screen.getByText('Total Hexagons:').closest('div')).toHaveTextContent('Total Hexagons: 0');
+    expect(screen.getByText((content, element) => {
+      return element?.textContent === 'Total Hexagons: 0';
+    })).toBeInTheDocument();
   });
 
   test('handles metadata with large numbers', () => {
@@ -122,11 +124,10 @@ describe('MapStatistics Component', () => {
   });
 
   test('applies correct styling classes', () => {
-    const { container } = render(<MapStatistics metadata={mockMetadata} />);
+    render(<MapStatistics metadata={mockMetadata} />);
     
     // Check that the component renders with expected structure
-    const statisticsContainer = container.firstChild;
-    expect(statisticsContainer).toBeInTheDocument();
+    expect(screen.getByText('Map Statistics')).toBeInTheDocument();
   });
 
   test('displays empty seed correctly', () => {
@@ -163,9 +164,13 @@ describe('MapStatistics Component', () => {
     render(<MapStatistics metadata={incompleteMetadata} />);
     
     expect(screen.getByText('Total Hexagons:')).toBeInTheDocument();
-    expect(screen.getByText('Total Hexagons:').closest('div')).toHaveTextContent('Total Hexagons: 50');
+    expect(screen.getByText((content, element) => {
+      return element?.textContent === 'Total Hexagons: 50';
+    })).toBeInTheDocument();
     expect(screen.getByText('Corridors:')).toBeInTheDocument();
-    expect(screen.getByText('Corridors:').closest('div')).toHaveTextContent('Corridors: 25');
+    expect(screen.getByText((content, element) => {
+      return element?.textContent === 'Corridors: 25';
+    })).toBeInTheDocument();
   });
 
   test('calculates percentage distribution correctly', () => {
@@ -201,7 +206,11 @@ describe('MapStatistics Component', () => {
 
     render(<MapStatistics metadata={singleHexMetadata} />);
     
-    expect(screen.getByText('Rooms:').closest('div')).toHaveTextContent('Rooms: 1');
-    expect(screen.getByText('Corridors:').closest('div')).toHaveTextContent('Corridors: 0');
+    expect(screen.getByText((content, element) => {
+      return element?.textContent === 'Rooms: 1';
+    })).toBeInTheDocument();
+    expect(screen.getByText((content, element) => {
+      return element?.textContent === 'Corridors: 0';
+    })).toBeInTheDocument();
   });
 });
