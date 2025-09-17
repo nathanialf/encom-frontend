@@ -122,6 +122,7 @@ Jenkins pipeline automatically:
 4. **Build** optimized production bundle
 5. **Archive** versioned tarball to S3 artifacts bucket
 6. **Deploy** static files to S3 hosting bucket
+7. **Invalidate** CloudFront cache for immediate content updates
 
 ### Manual Deployment
 
@@ -144,6 +145,23 @@ Frontend hosting infrastructure is now enabled in Terraform:
 - **Route53 DNS**: Automated certificate validation via CNAME records
 - **Origin Access Control**: Secure S3 access via CloudFront only
 - **Custom Error Pages**: 404/403 redirects to index.html for SPA routing
+
+### CloudFront Cache Invalidation
+
+The deployment pipeline automatically invalidates CloudFront cache after successful S3 deployment:
+
+- **Automatic Detection**: Finds CloudFront distribution by S3 origin domain
+- **Full Invalidation**: Clears all paths (`/*`) for immediate content updates
+- **Error Resilient**: Deployment succeeds even if invalidation fails
+- **Cache Clear Time**: 1-5 minutes for global propagation
+- **Cost Efficient**: Uses free tier (1,000 invalidations/month)
+
+```bash
+# Manual invalidation (if needed)
+aws cloudfront create-invalidation \
+    --distribution-id DISTRIBUTION_ID \
+    --paths "/*"
+```
 
 ## Testing
 

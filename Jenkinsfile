@@ -145,6 +145,47 @@ pipeline {
                             
                             echo "Frontend deployed successfully!"
                             echo "Website URL: https://${hostingBucket}.s3-website-${AWS_REGION}.amazonaws.com"
+                            
+                            // Create CloudFront invalidation using AWS CLI
+                            script {
+                                try {
+                                    echo "Finding CloudFront distribution for bucket: ${hostingBucket}"
+                                    
+                                    // Find CloudFront distribution ID by S3 origin domain
+                                    def distributionId = sh(
+                                        script: """
+                                            aws cloudfront list-distributions \
+                                                --query "DistributionList.Items[?Origins.Items[0].DomainName=='${hostingBucket}.s3.${AWS_REGION}.amazonaws.com'].Id" \
+                                                --output text
+                                        """,
+                                        returnStdout: true
+                                    ).trim()
+                                    
+                                    if (distributionId && distributionId != '' && distributionId != 'None') {
+                                        echo "Found CloudFront distribution: ${distributionId}"
+                                        
+                                        // Create invalidation for all paths
+                                        def invalidationId = sh(
+                                            script: """
+                                                aws cloudfront create-invalidation \
+                                                    --distribution-id ${distributionId} \
+                                                    --paths "/*" \
+                                                    --query 'Invalidation.Id' \
+                                                    --output text
+                                            """,
+                                            returnStdout: true
+                                        ).trim()
+                                        
+                                        echo "CloudFront invalidation created: ${invalidationId}"
+                                        echo "Cache will be cleared in 1-5 minutes"
+                                    } else {
+                                        echo "Warning: Could not find CloudFront distribution for bucket ${hostingBucket}"
+                                    }
+                                } catch (Exception e) {
+                                    echo "Warning: CloudFront invalidation failed: ${e.message}"
+                                    // Don't fail the build for invalidation issues
+                                }
+                            }
                         }
                     }
                 }
