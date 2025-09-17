@@ -11,7 +11,7 @@ React TypeScript application for the ENCOM hexagonal map generator system.
 - **Screenshot Capture** - Export generated maps as PNG images
 - **Hover Interaction** - Display hexagon coordinates and properties
 - **Fully Responsive Design** - Optimized layouts for mobile, tablet, and desktop
-- **Auto-Centering** - Smart zoom and positioning for optimal map viewing
+- **Intelligent Auto-Centering** - Bounding box algorithm ensures entire map is always visible with optimal zoom
 
 ## Architecture
 
@@ -63,7 +63,7 @@ The app connects to different API endpoints based on environment:
 - **Mouse Wheel**: Zoom in/out (0.1x to 3.0x)
 - **Click + Drag**: Pan around large maps
 - **+ / - Buttons**: Manual zoom controls
-- **Reset Button**: Return to default view (1x zoom, centered)
+- **Reset Button**: Return to optimal bounding box view with entire map visible
 - **📷 Save Button**: Download screenshot as PNG
 - **Hover**: Display hexagon coordinates
 
@@ -152,7 +152,7 @@ npm test -- --watchAll=false --ci
 
 ### Test Coverage
 
-- **112 tests** across 8 test suites
+- **113 tests** across 8 test suites
 - **Component tests**: App, MapControls, MapStatistics, HexagonCanvas
 - **Library tests**: API integration, hexagon mathematics
 - **Hook tests**: Map generation, responsive window dimensions

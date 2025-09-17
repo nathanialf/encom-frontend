@@ -45,9 +45,10 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // Calculate map bounds for centering
+    // Calculate map bounds and proper offset for centering
     const positions = hexagons.map(h => ({ q: h.q, r: h.r }));
     const mapBounds = HexagonMath.calculateCanvasSize(positions, hexSize);
+    const mapOffset = HexagonMath.calculateOffset(positions, hexSize);
     const mapCenter = {
       x: mapBounds.width / 2,
       y: mapBounds.height / 2
@@ -59,31 +60,24 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
       y: canvasHeight / 2
     };
 
-    // On first load, center the map optimally in the viewport
+    // On first load, calculate optimal zoom to fit entire map in viewport
     if (isFirstLoad && hexagons.length > 0) {
-      // Calculate optimal zoom to fit the map nicely in the viewport
-      const mapWidth = mapBounds.width || hexSize * 4; // Fallback for tiny maps
-      const mapHeight = mapBounds.height || hexSize * 4;
-      const viewportWidth = canvasWidth * 0.7; // Use 70% of viewport for padding
-      const viewportHeight = canvasHeight * 0.7;
+      // Use bounding box approach to ensure entire map is visible
+      const paddingFactor = isMobile ? 0.85 : 0.8; // Leave some padding around the map
+      const availableWidth = canvasWidth * paddingFactor;
+      const availableHeight = canvasHeight * paddingFactor;
       
-      let optimalZoom = 1.0;
+      // Calculate zoom to fit the map bounds within available space
+      const zoomX = availableWidth / mapBounds.width;
+      const zoomY = availableHeight / mapBounds.height;
       
-      // Only calculate zoom if map has meaningful size
-      if (mapWidth > hexSize && mapHeight > hexSize) {
-        optimalZoom = Math.min(
-          viewportWidth / mapWidth,
-          viewportHeight / mapHeight,
-          3.0 // Increased cap for small maps
-        );
-      }
+      // Use the smaller zoom to ensure entire map fits
+      let optimalZoom = Math.min(zoomX, zoomY);
       
-      // For very small maps (single hexagon or tiny clusters), use larger zoom
-      if (hexagons.length <= 5) {
-        optimalZoom = Math.max(optimalZoom, isMobile ? 1.5 : 2.0);
-      } else {
-        optimalZoom = Math.max(optimalZoom, 1.0);
-      }
+      // Set reasonable min/max zoom bounds
+      const minZoom = 0.2;
+      const maxZoom = isMobile ? 5.0 : 4.0;
+      optimalZoom = Math.max(minZoom, Math.min(maxZoom, optimalZoom));
       
       setZoom(optimalZoom);
       setPanOffset({ x: 0, y: 0 }); // Reset pan to center
@@ -95,7 +89,7 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     ctx.translate(viewportCenter.x, viewportCenter.y);
     ctx.scale(zoom, zoom);
     ctx.translate(panOffset.x, panOffset.y);
-    ctx.translate(-mapCenter.x, -mapCenter.y);
+    ctx.translate(mapOffset.x - mapCenter.x, mapOffset.y - mapCenter.y);
 
     // Draw connections first (so they appear behind hexagons)
     ctx.strokeStyle = '#00ffff40';
@@ -165,6 +159,13 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
       setIsFirstLoad(true);
     }
   }, [hexagons.length]);
+
+  // Force re-centering when switching to mobile (for better mobile experience)
+  useEffect(() => {
+    if (hexagons.length > 0 && isMobile) {
+      setIsFirstLoad(true);
+    }
+  }, [isMobile, hexagons.length]);
 
   const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
