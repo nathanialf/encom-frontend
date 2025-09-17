@@ -183,13 +183,13 @@ const App: React.FC = () => {
         {/* Footer */}
         <footer style={{ 
           textAlign: 'center', 
-          marginTop: isMobile ? '30px' : '40px', 
-          padding: isMobile ? '15px' : '20px',
+          marginTop: isMobile ? '30px' : '40px',
+          padding: isMobile ? '8px' : '10px',
           borderTop: '1px solid #00ffff22',
           color: '#00ffff66',
           fontSize: isMobile ? '12px' : '14px'
         }}>
-          <p>Powered by AWS Lambda • API Gateway • React</p>
+          <p style={{ margin: 0 }}>2025 • Nathanial Fine • DEFNF</p>
         </footer>
       </div>
     </div>

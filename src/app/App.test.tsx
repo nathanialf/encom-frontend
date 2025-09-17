@@ -197,9 +197,9 @@ describe('App Component', () => {
     });
   });
 
-  test('renders footer with technology stack', () => {
+  test('renders footer with author information', () => {
     render(<App />);
-    const footer = screen.getByText('Powered by AWS Lambda • API Gateway • React');
+    const footer = screen.getByText('2025 • Nathanial Fine • DEFNF');
     expect(footer).toBeInTheDocument();
   });
 
