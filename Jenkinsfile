@@ -22,10 +22,6 @@ pipeline {
         AWS_REGION = 'us-west-1'
         PROJECT_NAME = 'encom-frontend'
         CI = 'true'
-        
-        // CloudFront Distribution IDs (configure these in Jenkins credentials)
-        CLOUDFRONT_DEV_DISTRIBUTION_ID = credentials('cloudfront-dev-distribution-id')
-        CLOUDFRONT_PROD_DISTRIBUTION_ID = credentials('cloudfront-prod-distribution-id')
     }
     
     tools {
@@ -155,17 +151,21 @@ pipeline {
                                 try {
                                     echo "Finding CloudFront distribution for bucket: ${hostingBucket}"
                                     
-                                    // Find CloudFront distribution by S3 origin domain
-                                    def distributions = cfnDescribeStackResources(stackName: "encom-${params.ENVIRONMENT}")
+                                    // Load the appropriate credential based on environment
+                                    def credentialId = params.ENVIRONMENT == 'prod' ? 
+                                        'cloudfront-prod-distribution-id' : 
+                                        'cloudfront-dev-distribution-id'
+                                    
                                     def distributionId = null
                                     
-                                    // Alternative: try to find by domain pattern if stack approach doesn't work
-                                    def targetDomain = "${hostingBucket}.s3.${AWS_REGION}.amazonaws.com"
-                                    
-                                    // Get distribution ID from environment based on deployment environment
-                                    distributionId = params.ENVIRONMENT == 'prod' ? 
-                                        env.CLOUDFRONT_PROD_DISTRIBUTION_ID : 
-                                        env.CLOUDFRONT_DEV_DISTRIBUTION_ID
+                                    // Try to load the credential
+                                    try {
+                                        withCredentials([string(credentialsId: credentialId, variable: 'DISTRIBUTION_ID')]) {
+                                            distributionId = env.DISTRIBUTION_ID
+                                        }
+                                    } catch (Exception credError) {
+                                        echo "Warning: CloudFront distribution credential '${credentialId}' not found: ${credError.message}"
+                                    }
                                     
                                     if (distributionId) {
                                         echo "Using CloudFront distribution: ${distributionId}"
@@ -180,7 +180,7 @@ pipeline {
                                         echo "Cache will be cleared in 1-5 minutes"
                                     } else {
                                         echo "Warning: CloudFront distribution ID not configured for ${params.ENVIRONMENT}"
-                                        echo "Please set CLOUDFRONT_DEV_DISTRIBUTION_ID or CLOUDFRONT_PROD_DISTRIBUTION_ID environment variables"
+                                        echo "Please configure Jenkins credential '${credentialId}' with the CloudFront distribution ID"
                                     }
                                 } catch (Exception e) {
                                     echo "Warning: CloudFront invalidation failed: ${e.message}"
