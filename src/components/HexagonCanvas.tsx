@@ -182,11 +182,12 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     
     const positions = hexagons.map(h => ({ q: h.q, r: h.r }));
     const mapBounds = HexagonMath.calculateCanvasSize(positions, hexSize);
+    const mapOffset = HexagonMath.calculateOffset(positions, hexSize);
     const mapCenter = { x: mapBounds.width / 2, y: mapBounds.height / 2 };
 
-    // Inverse transform: undo the canvas transformations
-    const transformedX = (mouseX - viewportCenter.x) / zoom - panOffset.x + mapCenter.x;
-    const transformedY = (mouseY - viewportCenter.y) / zoom - panOffset.y + mapCenter.y;
+    // Inverse transform: undo the canvas transformations (must match rendering transformations)
+    const transformedX = (mouseX - viewportCenter.x) / zoom - panOffset.x - (mapOffset.x - mapCenter.x);
+    const transformedY = (mouseY - viewportCenter.y) / zoom - panOffset.y - (mapOffset.y - mapCenter.y);
 
     // Find closest hexagon
     let closestHex: string | null = null;
