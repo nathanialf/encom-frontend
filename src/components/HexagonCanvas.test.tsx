@@ -88,17 +88,17 @@ describe('HexagonCanvas Responsive Features', () => {
     render(<HexagonCanvas hexagons={mockHexagons} />);
     
     // Check for zoom controls to verify component rendered
-    expect(screen.getByText('+')).toBeInTheDocument();
-    expect(screen.getByText('-')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom out')).toBeInTheDocument();
   });
 
   test('renders zoom controls', () => {
     render(<HexagonCanvas hexagons={mockHexagons} />);
     
-    expect(screen.getByText('+')).toBeInTheDocument();
-    expect(screen.getByText('-')).toBeInTheDocument();
-    expect(screen.getByText('Reset')).toBeInTheDocument();
-    expect(screen.getByText('📷 Save')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom out')).toBeInTheDocument();
+    expect(screen.getByLabelText('Reset view')).toBeInTheDocument();
+    expect(screen.getByLabelText('Save screenshot')).toBeInTheDocument();
   });
 
   test('renders responsive instructions', () => {
@@ -119,7 +119,7 @@ describe('HexagonCanvas Responsive Features', () => {
 
     render(<HexagonCanvas hexagons={mockHexagons} />);
     
-    const zoomButton = screen.getByText('+');
+    const zoomButton = screen.getByLabelText('Zoom in');
     expect(zoomButton).toBeInTheDocument();
   });
 
@@ -134,15 +134,15 @@ describe('HexagonCanvas Responsive Features', () => {
 
     render(<HexagonCanvas hexagons={mockHexagons} />);
     
-    const zoomButton = screen.getByText('+');
+    const zoomButton = screen.getByLabelText('Zoom in');
     expect(zoomButton).toBeInTheDocument();
   });
 
   test('zoom controls work correctly', () => {
     render(<HexagonCanvas hexagons={mockHexagons} />);
     
-    const zoomInButton = screen.getByText('+');
-    const zoomOutButton = screen.getByText('-');
+    const zoomInButton = screen.getByLabelText('Zoom in');
+    const zoomOutButton = screen.getByLabelText('Zoom out');
     
     // Test zoom in
     fireEvent.click(zoomInButton);
@@ -157,7 +157,7 @@ describe('HexagonCanvas Responsive Features', () => {
   test('reset button works correctly', () => {
     render(<HexagonCanvas hexagons={mockHexagons} />);
     
-    const resetButton = screen.getByText('Reset');
+    const resetButton = screen.getByLabelText('Reset view');
     
     fireEvent.click(resetButton);
     
@@ -169,8 +169,8 @@ describe('HexagonCanvas Responsive Features', () => {
     render(<HexagonCanvas hexagons={[]} />);
     
     // Should render without errors - check for zoom controls
-    expect(screen.getByText('+')).toBeInTheDocument();
-    expect(screen.getByText('-')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom out')).toBeInTheDocument();
   });
 
   test('updates when hexagons change', () => {
@@ -189,8 +189,8 @@ describe('HexagonCanvas Responsive Features', () => {
     rerender(<HexagonCanvas hexagons={newHexagons} />);
     
     // Should not throw errors - verify controls still render
-    expect(screen.getByText('+')).toBeInTheDocument();
-    expect(screen.getByText('-')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom out')).toBeInTheDocument();
   });
 
   test('applies correct styling for different screen sizes', () => {
@@ -206,10 +206,10 @@ describe('HexagonCanvas Responsive Features', () => {
       const { unmount } = render(<HexagonCanvas hexagons={mockHexagons} />);
       
       // Verify component renders for each screen size
-      expect(screen.getByText('+')).toBeInTheDocument();
+      expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
       
       // Reset button should always show "Reset"
-      expect(screen.getByText('Reset')).toBeInTheDocument();
+      expect(screen.getByLabelText('Reset view')).toBeInTheDocument();
       
       unmount();
     });
@@ -230,7 +230,7 @@ describe('HexagonCanvas Responsive Features', () => {
     rerender(<HexagonCanvas hexagons={mockHexagons} />);
     
     // Should render without errors
-    expect(screen.getByText('+')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
   });
 
   test('properly centers map using bounding box approach', () => {
@@ -242,8 +242,8 @@ describe('HexagonCanvas Responsive Features', () => {
     render(<HexagonCanvas hexagons={dispersedHexagons} />);
     
     // Should render both hexagons without errors - check for zoom controls
-    expect(screen.getByText('+')).toBeInTheDocument();
-    expect(screen.getByText('-')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom out')).toBeInTheDocument();
   });
 
   test('uses viewport width for mobile canvas sizing', () => {
@@ -260,8 +260,8 @@ describe('HexagonCanvas Responsive Features', () => {
     
     // Mobile should use width-based sizing: Math.min(400, Math.max(280, 375 * 0.75)) = 281.25px
     // Verify by checking that mobile controls are rendered (indirectly tests canvas sizing)
-    expect(screen.getByText('+')).toHaveStyle('min-width: 44px'); // Mobile button styling
-    expect(screen.getByText('+')).toHaveStyle('min-height: 44px');
+    expect(screen.getByLabelText('Zoom in')).toHaveStyle('min-width: 44px'); // Mobile button styling
+    expect(screen.getByLabelText('Zoom in')).toHaveStyle('min-height: 44px');
   });
 
   test('uses viewport height for desktop canvas sizing', () => {
@@ -278,7 +278,7 @@ describe('HexagonCanvas Responsive Features', () => {
     
     // Desktop should use height-based sizing: Math.min(800 * 0.70, 800 - 100) = 560px
     // Verify by checking that desktop controls are rendered (indirectly tests canvas sizing)
-    expect(screen.getByText('+')).not.toHaveStyle('min-width: 44px'); // Desktop doesn't have min-width
+    expect(screen.getByLabelText('Zoom in')).not.toHaveStyle('min-width: 44px'); // Desktop doesn't have min-width
   });
 
   test('shows updated instructions for touch devices', () => {
@@ -303,9 +303,9 @@ describe('HexagonCanvas Responsive Features', () => {
     
     // Component should render without errors - this indirectly tests coordinate transformation
     // and touch event configuration (since the component would fail if touch handlers were broken)
-    expect(screen.getByText('+')).toBeInTheDocument();
-    expect(screen.getByText('-')).toBeInTheDocument();
-    expect(screen.getByText('Reset')).toBeInTheDocument();
-    expect(screen.getByText('📷 Save')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom in')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom out')).toBeInTheDocument();
+    expect(screen.getByLabelText('Reset view')).toBeInTheDocument();
+    expect(screen.getByLabelText('Save screenshot')).toBeInTheDocument();
   });
 });

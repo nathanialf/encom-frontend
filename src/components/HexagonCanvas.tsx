@@ -2,6 +2,14 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Hexagon } from '../types/map';
 import { HexagonMath } from '../lib/hexagon-math';
 import { useWindowDimensions } from '../hooks/useWindowDimensions';
+import { 
+  IconPlus, 
+  IconMinus, 
+  IconCurrentLocation, 
+  IconCamera, 
+  IconMouse, 
+  IconDeviceMobile 
+} from '@tabler/icons-react';
 
 interface HexagonCanvasProps {
   hexagons: Hexagon[];
@@ -21,9 +29,7 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
-  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number; time: number } | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -252,110 +258,6 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     setIsFirstLoad(true);
   };
 
-  // Touch event handlers for mobile support
-  const getTouchDistance = (touch1: React.Touch, touch2: React.Touch) => {
-    const dx = touch1.clientX - touch2.clientX;
-    const dy = touch1.clientY - touch2.clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  const getTouchCenter = (touch1: React.Touch, touch2: React.Touch) => {
-    return {
-      x: (touch1.clientX + touch2.clientX) / 2,
-      y: (touch1.clientY + touch2.clientY) / 2
-    };
-  };
-
-  const handleTouchStart = (event: React.TouchEvent<HTMLCanvasElement>) => {
-    event.preventDefault();
-    
-    if (event.touches.length === 1) {
-      // Single touch - could be tap or pan start
-      const touch = event.touches[0];
-      setTouchStartPos({ 
-        x: touch.clientX, 
-        y: touch.clientY, 
-        time: Date.now() 
-      });
-      setIsDragging(true);
-      setDragStart({ 
-        x: touch.clientX - panOffset.x, 
-        y: touch.clientY - panOffset.y 
-      });
-    } else if (event.touches.length === 2) {
-      // Two touches - start zooming
-      setIsDragging(false);
-      setTouchStartPos(null); // Clear tap detection for multi-touch
-      const distance = getTouchDistance(event.touches[0], event.touches[1]);
-      setLastTouchDistance(distance);
-      
-      // Store initial touch positions for reference if needed
-      getTouchCenter(event.touches[0], event.touches[1]);
-    }
-  };
-
-  const handleTouchMove = (event: React.TouchEvent<HTMLCanvasElement>) => {
-    event.preventDefault();
-    
-    if (event.touches.length === 1 && isDragging) {
-      // Single touch - pan
-      const touch = event.touches[0];
-      setPanOffset({
-        x: touch.clientX - dragStart.x,
-        y: touch.clientY - dragStart.y
-      });
-    } else if (event.touches.length === 2 && lastTouchDistance !== null) {
-      // Two touches - zoom
-      const currentDistance = getTouchDistance(event.touches[0], event.touches[1]);
-      const scale = currentDistance / lastTouchDistance;
-      
-      // Apply zoom with limits
-      setZoom(prev => Math.max(0.1, Math.min(3.0, prev * scale)));
-      setLastTouchDistance(currentDistance);
-    }
-  };
-
-  const handleTouchEnd = (event: React.TouchEvent<HTMLCanvasElement>) => {
-    event.preventDefault();
-    
-    if (event.touches.length === 0) {
-      // All touches ended - check if this was a tap
-      if (touchStartPos && event.changedTouches.length === 1) {
-        const touch = event.changedTouches[0];
-        const timeDiff = Date.now() - touchStartPos.time;
-        const distance = Math.sqrt(
-          Math.pow(touch.clientX - touchStartPos.x, 2) + 
-          Math.pow(touch.clientY - touchStartPos.y, 2)
-        );
-        
-        // Detect tap: short duration and minimal movement
-        if (timeDiff < 300 && distance < 10) {
-          const tappedHex = findHexagonAtCoordinates(touch.clientX, touch.clientY);
-          if (tappedHex) {
-            // Show hexagon info on tap (same as hover on desktop)
-            setHoveredHex(tappedHex);
-            // Clear after a delay to simulate hover behavior
-            setTimeout(() => setHoveredHex(null), 2000);
-          }
-        }
-      }
-      
-      setIsDragging(false);
-      setLastTouchDistance(null);
-      setTouchStartPos(null);
-    } else if (event.touches.length === 1) {
-      // One touch remaining, reset for panning
-      setLastTouchDistance(null);
-      if (!isDragging) {
-        setIsDragging(true);
-        const touch = event.touches[0];
-        setDragStart({ 
-          x: touch.clientX - panOffset.x, 
-          y: touch.clientY - panOffset.y 
-        });
-      }
-    }
-  };
 
   const takeScreenshot = () => {
     const canvas = canvasRef.current;
@@ -394,71 +296,87 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
       }}>
         <button
           onClick={() => setZoom(prev => Math.min(3.0, prev * 1.2))}
+          aria-label="Zoom in"
           style={{
             backgroundColor: '#00ffff',
             color: '#000',
             border: 'none',
             borderRadius: '4px',
-            padding: isMobile ? '10px 14px' : '5px 10px',
+            padding: isMobile ? '12px' : '8px',
             cursor: 'pointer',
             fontSize: isMobile ? '18px' : '14px',
             fontWeight: 'bold',
-            minWidth: isMobile ? '44px' : 'auto',
-            minHeight: isMobile ? '44px' : 'auto'
+            minWidth: isMobile ? '44px' : '36px',
+            minHeight: isMobile ? '44px' : '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          +
+          <IconPlus size={isMobile ? 20 : 16} />
         </button>
         <button
           onClick={() => setZoom(prev => Math.max(0.1, prev / 1.2))}
+          aria-label="Zoom out"
           style={{
             backgroundColor: '#00ffff',
             color: '#000',
             border: 'none',
             borderRadius: '4px',
-            padding: isMobile ? '10px 14px' : '5px 10px',
+            padding: isMobile ? '12px' : '8px',
             cursor: 'pointer',
             fontSize: isMobile ? '18px' : '14px',
             fontWeight: 'bold',
-            minWidth: isMobile ? '44px' : 'auto',
-            minHeight: isMobile ? '44px' : 'auto'
+            minWidth: isMobile ? '44px' : '36px',
+            minHeight: isMobile ? '44px' : '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          -
+          <IconMinus size={isMobile ? 20 : 16} />
         </button>
         <button
           onClick={resetView}
+          aria-label="Reset view"
           style={{
             backgroundColor: '#ff8800',
             color: '#000',
             border: 'none',
             borderRadius: '4px',
-            padding: isMobile ? '8px 12px' : '5px 10px',
+            padding: isMobile ? '12px' : '8px',
             cursor: 'pointer',
             fontSize: isMobile ? '14px' : '12px',
             fontWeight: 'bold',
-            minWidth: isMobile ? '44px' : 'auto',
-            minHeight: isMobile ? '44px' : 'auto'
+            minWidth: isMobile ? '44px' : '36px',
+            minHeight: isMobile ? '44px' : '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          Reset
+          <IconCurrentLocation size={isMobile ? 18 : 14} />
         </button>
         <button
           onClick={takeScreenshot}
+          aria-label="Save screenshot"
           style={{
             backgroundColor: '#88ff00',
             color: '#000',
             border: 'none',
             borderRadius: '4px',
-            padding: isMobile ? '8px 12px' : '5px 10px',
+            padding: isMobile ? '12px' : '8px',
             cursor: 'pointer',
             fontSize: isMobile ? '14px' : '12px',
             fontWeight: 'bold',
-            minWidth: isMobile ? '44px' : 'auto',
-            minHeight: isMobile ? '44px' : 'auto'
+            minWidth: isMobile ? '44px' : '36px',
+            minHeight: isMobile ? '44px' : '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          📷 Save
+          <IconCamera size={isMobile ? 18 : 14} />
         </button>
       </div>
 
@@ -489,9 +407,6 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
           style={{
             display: 'block',
             background: '#000',
@@ -514,11 +429,13 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
         maxWidth: '280px',
         lineHeight: '1.3'
       }}>
-        <div style={{ display: 'block' }}>
-          🖱️ <strong>Desktop:</strong> Scroll to zoom • Drag to pan • Hover for coordinates
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2px' }}>
+          <IconMouse size={14} style={{ marginRight: '6px', flexShrink: 0 }} />
+          <span><strong>Desktop:</strong> Scroll to zoom • Drag to pan • Hover for coordinates</span>
         </div>
-        <div style={{ display: 'block', marginTop: '2px' }}>
-          📱 <strong>Mobile:</strong> Pinch to zoom • Touch drag to pan • Tap for coordinates
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <IconDeviceMobile size={14} style={{ marginRight: '6px', flexShrink: 0 }} />
+          <span><strong>Mobile:</strong> Pinch to zoom • Touch drag to pan • Tap for coordinates</span>
         </div>
       </div>
     </div>

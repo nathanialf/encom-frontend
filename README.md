@@ -17,6 +17,7 @@ React TypeScript application for the ENCOM hexagonal map generator system.
 
 - **React 18** with TypeScript
 - **Canvas API** for hexagon rendering and interactions
+- **Tabler Icons** for professional, consistent iconography
 - **REST API** integration with AWS Lambda backend
 - **S3 + CloudFront** deployment for global CDN
 
@@ -64,17 +65,17 @@ The app connects to different API endpoints based on environment:
 - **Mouse Wheel**: Zoom in/out (0.1x to 3.0x)
 - **Click + Drag**: Pan around large maps
 - **Hover**: Display hexagon coordinates and properties
-- **+ / - Buttons**: Manual zoom controls
-- **Reset Button**: Return to optimal bounding box view with entire map visible
-- **📷 Save Button**: Download screenshot as PNG
+- **+ / - Icon Buttons**: Manual zoom controls with professional Tabler icons
+- **Reset Icon Button**: Return to optimal bounding box view with entire map visible
+- **Camera Icon Button**: Download screenshot as PNG
 
 ### Mobile & Touch Controls
 - **Pinch to Zoom**: Multi-touch zoom in/out
 - **Touch Drag**: Single finger pan across map
-- **Tap**: Touch hexagons to display coordinates (shows for 2 seconds)
-- **+ / - Buttons**: Manual zoom controls (optimized for touch with 44px minimum size)
-- **Reset Button**: Return to optimal view
-- **📷 Save Button**: Download screenshot
+- **Tap**: Touch hexagons to display coordinates (persists until tapping elsewhere)
+- **+ / - Icon Buttons**: Manual zoom controls (optimized for touch with 44px minimum size)
+- **Reset Icon Button**: Return to optimal view
+- **Camera Icon Button**: Download screenshot
 
 ## Map Generation
 
