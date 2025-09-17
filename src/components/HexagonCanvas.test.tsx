@@ -239,10 +239,10 @@ describe('HexagonCanvas Responsive Features', () => {
       { id: '2', q: 2, r: 2, type: 'ROOM' as const, connections: ['1'] },
     ];
 
-    const { container } = render(<HexagonCanvas hexagons={dispersedHexagons} />);
+    render(<HexagonCanvas hexagons={dispersedHexagons} />);
     
-    // Should render both hexagons without errors
-    const canvas = container.querySelector('canvas');
-    expect(canvas).toBeInTheDocument();
+    // Should render both hexagons without errors - check for zoom controls
+    expect(screen.getByText('+')).toBeInTheDocument();
+    expect(screen.getByText('-')).toBeInTheDocument();
   });
 });
