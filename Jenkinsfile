@@ -162,8 +162,7 @@ pipeline {
                                     // Alternative: try to find by domain pattern if stack approach doesn't work
                                     def targetDomain = "${hostingBucket}.s3.${AWS_REGION}.amazonaws.com"
                                     
-                                    // For now, let's use a simpler approach - get distribution ID from environment
-                                    // This requires the distribution ID to be set as a Jenkins parameter or environment variable
+                                    // Get distribution ID from environment based on deployment environment
                                     distributionId = params.ENVIRONMENT == 'prod' ? 
                                         env.CLOUDFRONT_PROD_DISTRIBUTION_ID : 
                                         env.CLOUDFRONT_DEV_DISTRIBUTION_ID
@@ -197,9 +196,15 @@ pipeline {
     
     post {
         always {
-            echo "Frontend build complete. Build artifacts uploaded to S3 and ready for deployment."
-            echo "Run ENCOM-Infrastructure pipeline to deploy frontend infrastructure with latest build."
-            cleanWs()
+            script {
+                echo "Frontend build complete. Build artifacts uploaded to S3 and ready for deployment."
+                echo "Run ENCOM-Infrastructure pipeline to deploy frontend infrastructure with latest build."
+                try {
+                    cleanWs()
+                } catch (Exception e) {
+                    echo "Warning: Workspace cleanup failed: ${e.message}"
+                }
+            }
         }
     }
 }
