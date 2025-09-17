@@ -30,6 +30,8 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null);
+  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -258,6 +260,97 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     setIsFirstLoad(true);
   };
 
+  // Touch event handlers for mobile pan and zoom
+  const getTouchDistance = (touches: React.TouchList): number => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.sqrt(
+      Math.pow(touch1.clientX - touch2.clientX, 2) +
+      Math.pow(touch1.clientY - touch2.clientY, 2)
+    );
+  };
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    
+    if (event.touches.length === 1) {
+      // Single touch - prepare for potential dragging
+      const touch = event.touches[0];
+      setTouchStartPos({ x: touch.clientX, y: touch.clientY });
+      setDragStart({ x: touch.clientX - panOffset.x, y: touch.clientY - panOffset.y });
+      setIsDragging(false); // Don't set dragging until we detect movement
+    } else if (event.touches.length === 2) {
+      // Two touches - prepare for pinch zoom
+      setIsDragging(false);
+      setTouchStartPos(null);
+      const distance = getTouchDistance(event.touches);
+      setLastTouchDistance(distance);
+    }
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      
+      // Detect if this is actual dragging (movement threshold)
+      if (touchStartPos) {
+        const moveDistance = Math.sqrt(
+          Math.pow(touch.clientX - touchStartPos.x, 2) +
+          Math.pow(touch.clientY - touchStartPos.y, 2)
+        );
+        
+        // If moved more than 5 pixels, consider it dragging
+        if (moveDistance > 5) {
+          setIsDragging(true);
+        }
+      }
+      
+      // If dragging, update pan offset
+      if (isDragging) {
+        setPanOffset({
+          x: touch.clientX - dragStart.x,
+          y: touch.clientY - dragStart.y
+        });
+      }
+    } else if (event.touches.length === 2 && lastTouchDistance) {
+      // Two touches - pinch zoom
+      setIsDragging(false); // Not dragging during zoom
+      const distance = getTouchDistance(event.touches);
+      const zoomFactor = distance / lastTouchDistance;
+      
+      setZoom(prev => Math.max(0.1, Math.min(3.0, prev * zoomFactor)));
+      setLastTouchDistance(distance);
+    }
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    
+    if (event.touches.length === 0) {
+      // All touches ended
+      const wasDragging = isDragging;
+      setIsDragging(false);
+      setLastTouchDistance(null);
+      setTouchStartPos(null);
+      
+      // Handle tap for hover effect on single tap (only if we weren't dragging)
+      if (!wasDragging && event.changedTouches.length === 1) {
+        const touch = event.changedTouches[0];
+        const closestHex = findHexagonAtCoordinates(touch.clientX, touch.clientY);
+        setHoveredHex(closestHex);
+      }
+    } else if (event.touches.length === 1) {
+      // One touch remaining - reset for potential pan
+      const touch = event.touches[0];
+      setDragStart({ x: touch.clientX - panOffset.x, y: touch.clientY - panOffset.y });
+      setLastTouchDistance(null);
+      setTouchStartPos({ x: touch.clientX, y: touch.clientY });
+    }
+  };
+
 
   const takeScreenshot = () => {
     const canvas = canvasRef.current;
@@ -407,6 +500,9 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           style={{
             display: 'block',
             background: '#000',
