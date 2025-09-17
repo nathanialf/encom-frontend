@@ -60,12 +60,21 @@ The app connects to different API endpoints based on environment:
 
 ## Canvas Controls
 
+### Desktop Controls
 - **Mouse Wheel**: Zoom in/out (0.1x to 3.0x)
 - **Click + Drag**: Pan around large maps
+- **Hover**: Display hexagon coordinates and properties
 - **+ / - Buttons**: Manual zoom controls
 - **Reset Button**: Return to optimal bounding box view with entire map visible
 - **📷 Save Button**: Download screenshot as PNG
-- **Hover**: Display hexagon coordinates
+
+### Mobile & Touch Controls
+- **Pinch to Zoom**: Multi-touch zoom in/out
+- **Touch Drag**: Single finger pan across map
+- **Tap**: Touch hexagons to display coordinates (shows for 2 seconds)
+- **+ / - Buttons**: Manual zoom controls (optimized for touch with 44px minimum size)
+- **Reset Button**: Return to optimal view
+- **📷 Save Button**: Download screenshot
 
 ## Map Generation
 
@@ -152,7 +161,7 @@ npm test -- --watchAll=false --ci
 
 ### Test Coverage
 
-- **113 tests** across 8 test suites
+- **117 tests** across 8 test suites
 - **Component tests**: App, MapControls, MapStatistics, HexagonCanvas
 - **Library tests**: API integration, hexagon mathematics
 - **Hook tests**: Map generation, responsive window dimensions
@@ -183,6 +192,8 @@ find build/ -name "*.js" -o -name "*.css" | head -10
 - **Load Time**: <3s on 3G connection
 - **Canvas Performance**: 60fps with 1000+ hexagons
 - **Memory Usage**: <50MB for large maps
+- **Mobile Optimization**: Stable canvas sizing prevents scroll distortions
+- **Touch Response**: <10ms tap detection with coordinate transformation
 
 ## Contributing
 

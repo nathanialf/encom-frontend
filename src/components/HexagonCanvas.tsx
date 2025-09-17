@@ -14,7 +14,7 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
   hexSize = 30,
   className
 }) => {
-  const { height: windowHeight, isMobile, isTablet } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight, isMobile, isTablet } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredHex, setHoveredHex] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1.0);
@@ -23,6 +23,7 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number; time: number } | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -168,14 +169,24 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
   }, [isMobile, hexagons.length]);
 
   const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const closestHex = findHexagonAtCoordinates(event.clientX, event.clientY);
+    setHoveredHex(closestHex);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredHex(null);
+  };
+
+  // Helper function to find hexagon at given coordinates
+  const findHexagonAtCoordinates = (clientX: number, clientY: number): string | null => {
     const canvas = canvasRef.current;
-    if (!canvas || hexagons.length === 0) return;
+    if (!canvas || hexagons.length === 0) return null;
 
     const rect = canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
 
-    // Transform mouse coordinates to map space
+    // Transform coordinates to map space
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
     const viewportCenter = { x: canvasWidth / 2, y: canvasHeight / 2 };
@@ -185,9 +196,9 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     const mapOffset = HexagonMath.calculateOffset(positions, hexSize);
     const mapCenter = { x: mapBounds.width / 2, y: mapBounds.height / 2 };
 
-    // Inverse transform: undo the canvas transformations (must match rendering transformations)
-    const transformedX = (mouseX - viewportCenter.x) / zoom - panOffset.x - (mapOffset.x - mapCenter.x);
-    const transformedY = (mouseY - viewportCenter.y) / zoom - panOffset.y - (mapOffset.y - mapCenter.y);
+    // Inverse transform: undo the canvas transformations
+    const transformedX = (x - viewportCenter.x) / zoom - panOffset.x - (mapOffset.x - mapCenter.x);
+    const transformedY = (y - viewportCenter.y) / zoom - panOffset.y - (mapOffset.y - mapCenter.y);
 
     // Find closest hexagon
     let closestHex: string | null = null;
@@ -195,7 +206,6 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
 
     hexagons.forEach(hex => {
       const center = HexagonMath.axialToPixel(hex.q, hex.r, hexSize);
-
       const distance = Math.sqrt(
         Math.pow(transformedX - center.x, 2) + Math.pow(transformedY - center.y, 2)
       );
@@ -206,11 +216,7 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
       }
     });
 
-    setHoveredHex(closestHex);
-  };
-
-  const handleMouseLeave = () => {
-    setHoveredHex(null);
+    return closestHex;
   };
 
   const handleWheel = (event: React.WheelEvent) => {
@@ -264,9 +270,14 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     event.preventDefault();
     
     if (event.touches.length === 1) {
-      // Single touch - start panning
-      setIsDragging(true);
+      // Single touch - could be tap or pan start
       const touch = event.touches[0];
+      setTouchStartPos({ 
+        x: touch.clientX, 
+        y: touch.clientY, 
+        time: Date.now() 
+      });
+      setIsDragging(true);
       setDragStart({ 
         x: touch.clientX - panOffset.x, 
         y: touch.clientY - panOffset.y 
@@ -274,6 +285,7 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     } else if (event.touches.length === 2) {
       // Two touches - start zooming
       setIsDragging(false);
+      setTouchStartPos(null); // Clear tap detection for multi-touch
       const distance = getTouchDistance(event.touches[0], event.touches[1]);
       setLastTouchDistance(distance);
       
@@ -307,9 +319,30 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     event.preventDefault();
     
     if (event.touches.length === 0) {
-      // All touches ended
+      // All touches ended - check if this was a tap
+      if (touchStartPos && event.changedTouches.length === 1) {
+        const touch = event.changedTouches[0];
+        const timeDiff = Date.now() - touchStartPos.time;
+        const distance = Math.sqrt(
+          Math.pow(touch.clientX - touchStartPos.x, 2) + 
+          Math.pow(touch.clientY - touchStartPos.y, 2)
+        );
+        
+        // Detect tap: short duration and minimal movement
+        if (timeDiff < 300 && distance < 10) {
+          const tappedHex = findHexagonAtCoordinates(touch.clientX, touch.clientY);
+          if (tappedHex) {
+            // Show hexagon info on tap (same as hover on desktop)
+            setHoveredHex(tappedHex);
+            // Clear after a delay to simulate hover behavior
+            setTimeout(() => setHoveredHex(null), 2000);
+          }
+        }
+      }
+      
       setIsDragging(false);
       setLastTouchDistance(null);
+      setTouchStartPos(null);
     } else if (event.touches.length === 1) {
       // One touch remaining, reset for panning
       setLastTouchDistance(null);
@@ -434,12 +467,12 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
         style={{
           width: '100%',
           height: isMobile 
-            ? `${Math.min(windowHeight * 0.55, windowHeight - 280)}px` // Mobile: slightly shorter but full width
+            ? `${Math.min(400, Math.max(280, windowWidth * 0.75))}px` // Mobile: use viewport width for stability
             : isTablet 
               ? `${Math.min(windowHeight * 0.65, windowHeight - 120)}px` // Tablet: shorter and wider
               : `${Math.min(windowHeight * 0.70, windowHeight - 100)}px`, // Desktop: shorter and wider
           minHeight: isMobile ? '280px' : (isTablet ? '400px' : '450px'), // Adjusted minimums for better aspect ratios
-          maxHeight: isMobile ? '60vh' : (isTablet ? '70vh' : '75vh'), // More reasonable maximums
+          maxHeight: isMobile ? '400px' : (isTablet ? '70vh' : '75vh'), // Fixed max height for mobile
           border: '1px solid #00ffff',
           borderRadius: '4px',
           background: '#000',
@@ -485,7 +518,7 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
           🖱️ <strong>Desktop:</strong> Scroll to zoom • Drag to pan • Hover for coordinates
         </div>
         <div style={{ display: 'block', marginTop: '2px' }}>
-          📱 <strong>Mobile:</strong> Pinch to zoom • Touch drag to pan
+          📱 <strong>Mobile:</strong> Pinch to zoom • Touch drag to pan • Tap for coordinates
         </div>
       </div>
     </div>
