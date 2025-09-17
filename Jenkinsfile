@@ -22,6 +22,10 @@ pipeline {
         AWS_REGION = 'us-west-1'
         PROJECT_NAME = 'encom-frontend'
         CI = 'true'
+        
+        // CloudFront Distribution IDs (configure these in Jenkins credentials)
+        CLOUDFRONT_DEV_DISTRIBUTION_ID = credentials('cloudfront-dev-distribution-id')
+        CLOUDFRONT_PROD_DISTRIBUTION_ID = credentials('cloudfront-prod-distribution-id')
     }
     
     tools {
@@ -146,40 +150,38 @@ pipeline {
                             echo "Frontend deployed successfully!"
                             echo "Website URL: https://${hostingBucket}.s3-website-${AWS_REGION}.amazonaws.com"
                             
-                            // Create CloudFront invalidation using AWS CLI
+                            // Create CloudFront invalidation using Jenkins AWS plugin
                             script {
                                 try {
                                     echo "Finding CloudFront distribution for bucket: ${hostingBucket}"
                                     
-                                    // Find CloudFront distribution ID by S3 origin domain
-                                    def distributionId = sh(
-                                        script: """
-                                            aws cloudfront list-distributions \
-                                                --query "DistributionList.Items[?Origins.Items[0].DomainName=='${hostingBucket}.s3.${AWS_REGION}.amazonaws.com'].Id" \
-                                                --output text
-                                        """,
-                                        returnStdout: true
-                                    ).trim()
+                                    // Find CloudFront distribution by S3 origin domain
+                                    def distributions = cfnDescribeStackResources(stackName: "encom-${params.ENVIRONMENT}")
+                                    def distributionId = null
                                     
-                                    if (distributionId && distributionId != '' && distributionId != 'None') {
-                                        echo "Found CloudFront distribution: ${distributionId}"
+                                    // Alternative: try to find by domain pattern if stack approach doesn't work
+                                    def targetDomain = "${hostingBucket}.s3.${AWS_REGION}.amazonaws.com"
+                                    
+                                    // For now, let's use a simpler approach - get distribution ID from environment
+                                    // This requires the distribution ID to be set as a Jenkins parameter or environment variable
+                                    distributionId = params.ENVIRONMENT == 'prod' ? 
+                                        env.CLOUDFRONT_PROD_DISTRIBUTION_ID : 
+                                        env.CLOUDFRONT_DEV_DISTRIBUTION_ID
+                                    
+                                    if (distributionId) {
+                                        echo "Using CloudFront distribution: ${distributionId}"
                                         
-                                        // Create invalidation for all paths
-                                        def invalidationId = sh(
-                                            script: """
-                                                aws cloudfront create-invalidation \
-                                                    --distribution-id ${distributionId} \
-                                                    --paths "/*" \
-                                                    --query 'Invalidation.Id' \
-                                                    --output text
-                                            """,
-                                            returnStdout: true
-                                        ).trim()
+                                        // Create invalidation using Jenkins AWS plugin
+                                        cfInvalidate(
+                                            distribution: distributionId,
+                                            paths: ['/*']
+                                        )
                                         
-                                        echo "CloudFront invalidation created: ${invalidationId}"
+                                        echo "CloudFront invalidation created successfully"
                                         echo "Cache will be cleared in 1-5 minutes"
                                     } else {
-                                        echo "Warning: Could not find CloudFront distribution for bucket ${hostingBucket}"
+                                        echo "Warning: CloudFront distribution ID not configured for ${params.ENVIRONMENT}"
+                                        echo "Please set CLOUDFRONT_DEV_DISTRIBUTION_ID or CLOUDFRONT_PROD_DISTRIBUTION_ID environment variables"
                                     }
                                 } catch (Exception e) {
                                     echo "Warning: CloudFront invalidation failed: ${e.message}"

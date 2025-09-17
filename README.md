@@ -163,6 +163,18 @@ aws cloudfront create-invalidation \
     --paths "/*"
 ```
 
+#### Jenkins Credential Setup
+
+The pipeline requires CloudFront distribution IDs to be configured as Jenkins credentials:
+
+1. **Get Distribution ID**: Find in AWS Console → CloudFront → Distributions
+2. **Add Jenkins Credential**: Manage Jenkins → Manage Credentials → Add Secret Text
+3. **Required Credentials**:
+   - `cloudfront-dev-distribution-id` - Dev environment distribution ID
+   - `cloudfront-prod-distribution-id` - Prod environment distribution ID
+
+**IMPORTANT**: When setting up production environment, update the `cloudfront-prod-distribution-id` credential with the actual production CloudFront distribution ID.
+
 ## Testing
 
 Comprehensive test suite with full coverage of all components and functionality.
