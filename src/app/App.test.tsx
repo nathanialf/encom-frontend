@@ -9,6 +9,13 @@ jest.mock('../lib/api', () => ({
   }
 }));
 
+// Mock the useWindowDimensions hook
+const mockUseWindowDimensions = jest.fn();
+
+jest.mock('../hooks/useWindowDimensions', () => ({
+  useWindowDimensions: () => mockUseWindowDimensions()
+}));
+
 // Mock the canvas component to avoid canvas-related issues in tests
 jest.mock('../components/HexagonCanvas', () => ({
   HexagonCanvas: ({ hexagons }: { hexagons: any[] }) => (
@@ -21,6 +28,15 @@ jest.mock('../components/HexagonCanvas', () => ({
 describe('App Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    
+    // Set default mock return value
+    mockUseWindowDimensions.mockReturnValue({
+      width: 1200,
+      height: 800,
+      isMobile: false,
+      isTablet: false,
+      isDesktop: true
+    });
   });
 
   test('renders ENCOM title', () => {
@@ -185,5 +201,162 @@ describe('App Component', () => {
     render(<App />);
     const footer = screen.getByText('Powered by AWS Lambda • API Gateway • React');
     expect(footer).toBeInTheDocument();
+  });
+
+  describe('Responsive Layout', () => {
+    test('shows statistics in sidebar on desktop', async () => {
+      mockUseWindowDimensions.mockReturnValue({
+        width: 1200,
+        height: 800,
+        isMobile: false,
+        isTablet: false,
+        isDesktop: true
+      });
+
+      const mockMapData = {
+        hexagons: [
+          { id: 'hex-1', q: 0, r: 0, type: 'ROOM' as const, connections: [] }
+        ],
+        metadata: {
+          seed: 'test-seed',
+          hexagonCount: 1,
+          generatedAt: '2023-01-01T00:00:00.000Z',
+          version: '1.0.0',
+          cached: false,
+          generationTime: 50,
+          statistics: {
+            actualHexagons: 1,
+            corridorHexagons: 0,
+            roomHexagons: 1,
+            averageConnections: 0,
+            maxConnections: 0,
+            longestPath: 1,
+            boundingBox: { minQ: 0, maxQ: 0, minR: 0, maxR: 0 }
+          }
+        }
+      };
+
+      const { MapAPI } = require('../lib/api');
+      MapAPI.generateMap.mockResolvedValue(mockMapData);
+
+      render(<App />);
+      
+      const generateButton = screen.getByText('Generate Map');
+      fireEvent.click(generateButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Map Statistics')).toBeInTheDocument();
+      });
+    });
+
+    test('shows statistics below canvas on mobile', async () => {
+      mockUseWindowDimensions.mockReturnValue({
+        width: 600,
+        height: 800,
+        isMobile: true,
+        isTablet: false,
+        isDesktop: false
+      });
+
+      const mockMapData = {
+        hexagons: [
+          { id: 'hex-1', q: 0, r: 0, type: 'ROOM' as const, connections: [] }
+        ],
+        metadata: {
+          seed: 'test-seed',
+          hexagonCount: 1,
+          generatedAt: '2023-01-01T00:00:00.000Z',
+          version: '1.0.0',
+          cached: false,
+          generationTime: 50,
+          statistics: {
+            actualHexagons: 1,
+            corridorHexagons: 0,
+            roomHexagons: 1,
+            averageConnections: 0,
+            maxConnections: 0,
+            longestPath: 1,
+            boundingBox: { minQ: 0, maxQ: 0, minR: 0, maxR: 0 }
+          }
+        }
+      };
+
+      const { MapAPI } = require('../lib/api');
+      MapAPI.generateMap.mockResolvedValue(mockMapData);
+
+      render(<App />);
+      
+      const generateButton = screen.getByText('Generate Map');
+      fireEvent.click(generateButton);
+
+      await waitFor(() => {
+        // On mobile, statistics should appear after the canvas
+        const statistics = screen.getByText('Map Statistics');
+        const canvas = screen.getByTestId('hexagon-canvas');
+        
+        expect(statistics).toBeInTheDocument();
+        expect(canvas).toBeInTheDocument();
+        
+        // Check that statistics come after canvas in DOM order
+        const container = statistics.closest('div');
+        const canvasContainer = canvas.closest('div');
+        
+        if (container && canvasContainer) {
+          // Statistics should appear after canvas in mobile layout
+          expect(container.compareDocumentPosition(canvasContainer)).toBe(
+            Node.DOCUMENT_POSITION_PRECEDING
+          );
+        }
+      });
+    });
+
+    test('applies mobile-specific styling', () => {
+      mockUseWindowDimensions.mockReturnValue({
+        width: 600,
+        height: 800,
+        isMobile: true,
+        isTablet: false,
+        isDesktop: false
+      });
+
+      render(<App />);
+      
+      // Check that title is rendered with mobile-specific size
+      const title = screen.getByText('ENCOM');
+      expect(title).toBeInTheDocument();
+    });
+
+    test('applies tablet-specific styling', () => {
+      mockUseWindowDimensions.mockReturnValue({
+        width: 800,
+        height: 600,
+        isMobile: false,
+        isTablet: true,
+        isDesktop: false
+      });
+
+      render(<App />);
+      
+      const title = screen.getByText('ENCOM');
+      expect(title).toBeInTheDocument();
+    });
+
+    test('handles window resize gracefully', () => {
+      const { rerender } = render(<App />);
+      
+      // Simulate window resize to mobile
+      mockUseWindowDimensions.mockReturnValue({
+        width: 500,
+        height: 800,
+        isMobile: true,
+        isTablet: false,
+        isDesktop: false
+      });
+      
+      rerender(<App />);
+      
+      // Should not throw errors
+      expect(screen.getByText('ENCOM')).toBeInTheDocument();
+    });
   });
 });

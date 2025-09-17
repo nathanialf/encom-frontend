@@ -3,9 +3,11 @@ import { HexagonCanvas } from '../components/HexagonCanvas';
 import { MapControls } from '../components/MapControls';
 import { MapStatistics } from '../components/MapStatistics';
 import { useMapGeneration } from '../hooks/useMapGeneration';
+import { useWindowDimensions } from '../hooks/useWindowDimensions';
 
 const App: React.FC = () => {
   const { mapData, isLoading, error, generateMap, clearError } = useMapGeneration();
+  const { isMobile, isTablet } = useWindowDimensions();
 
   return (
     <div style={{ 
@@ -15,15 +17,15 @@ const App: React.FC = () => {
       fontFamily: 'monospace'
     }}>
       <div style={{
-        maxWidth: '1400px',
+        maxWidth: isMobile ? '100%' : '1400px', // Full width on mobile
         margin: '0 auto',
-        padding: '20px'
+        padding: isMobile ? '8px' : '20px' // Minimal padding on mobile for full width
       }}>
         {/* Header */}
-        <header style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <header style={{ textAlign: 'center', marginBottom: isMobile ? '20px' : '32px' }}>
           <h1 style={{ 
             margin: '0', 
-            fontSize: '2.5rem', 
+            fontSize: isMobile ? '2rem' : '2.5rem', 
             fontWeight: 'bold',
             textShadow: '0 0 10px #00ffff'
           }}>
@@ -31,7 +33,7 @@ const App: React.FC = () => {
           </h1>
           <p style={{ 
             margin: '8px 0 0 0', 
-            fontSize: '1.1rem', 
+            fontSize: isMobile ? '1rem' : '1.1rem', 
             opacity: 0.8 
           }}>
             Hexagonal Map Generation System
@@ -67,14 +69,23 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: isMobile ? '15px' : (isTablet ? '18px' : '20px'), 
+          alignItems: 'flex-start',
+          flexDirection: isMobile ? 'column' : 'row' // Responsive layout
+        }}>
           {/* Left Panel - Controls */}
-          <div style={{ minWidth: '300px' }}>
+          <div style={{ 
+            minWidth: isMobile ? '100%' : (isTablet ? '280px' : '300px'),
+            width: isMobile ? '100%' : 'auto',
+            flexShrink: 0 // Prevent controls from shrinking
+          }}>
             <div style={{
               backgroundColor: '#111',
               border: '1px solid #00ffff',
               borderRadius: '8px',
-              padding: '20px'
+              padding: isMobile ? '16px' : '20px'
             }}>
               <MapControls 
                 onGenerateMap={generateMap}
@@ -82,8 +93,8 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* Statistics */}
-            {mapData && (
+            {/* Statistics - Only show on desktop/tablet, not mobile */}
+            {mapData && !isMobile && (
               <div style={{ marginTop: '20px' }}>
                 <MapStatistics metadata={mapData.metadata} />
               </div>
@@ -91,7 +102,18 @@ const App: React.FC = () => {
           </div>
 
           {/* Right Panel - Canvas */}
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+          <div style={{ 
+            flex: 1, 
+            display: 'flex', 
+            justifyContent: 'center',
+            width: '100%',
+            minWidth: 0, // Allow flex item to shrink
+            // On mobile, ensure full width usage
+            ...(isMobile && { 
+              width: '100%',
+              maxWidth: '100%' 
+            })
+          }}>
             {isLoading && (
               <div style={{
                 display: 'flex',
@@ -151,14 +173,21 @@ const App: React.FC = () => {
           </div>
         </div>
 
+        {/* Mobile Statistics - Show below canvas on mobile */}
+        {mapData && isMobile && (
+          <div style={{ marginTop: '20px' }}>
+            <MapStatistics metadata={mapData.metadata} />
+          </div>
+        )}
+
         {/* Footer */}
         <footer style={{ 
           textAlign: 'center', 
-          marginTop: '40px', 
-          padding: '20px',
+          marginTop: isMobile ? '30px' : '40px', 
+          padding: isMobile ? '15px' : '20px',
           borderTop: '1px solid #00ffff22',
           color: '#00ffff66',
-          fontSize: '14px'
+          fontSize: isMobile ? '12px' : '14px'
         }}>
           <p>Powered by AWS Lambda • API Gateway • React</p>
         </footer>

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Hexagon } from '../types/map';
 import { HexagonMath } from '../lib/hexagon-math';
+import { useWindowDimensions } from '../hooks/useWindowDimensions';
 
 interface HexagonCanvasProps {
   hexagons: Hexagon[];
@@ -13,12 +14,15 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
   hexSize = 30,
   className
 }) => {
+  const { height: windowHeight, isMobile, isTablet } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredHex, setHoveredHex] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1.0);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -27,9 +31,12 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Fixed canvas size (viewport)
-    const canvasWidth = canvas.parentElement?.clientWidth || 800;
-    const canvasHeight = canvas.parentElement?.clientHeight || 600;
+    // Responsive canvas size based on container dimensions
+    const containerElement = canvas.parentElement;
+    if (!containerElement) return;
+    
+    const canvasWidth = containerElement.clientWidth;
+    const canvasHeight = containerElement.clientHeight;
     
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
@@ -51,6 +58,37 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
       x: canvasWidth / 2,
       y: canvasHeight / 2
     };
+
+    // On first load, center the map optimally in the viewport
+    if (isFirstLoad && hexagons.length > 0) {
+      // Calculate optimal zoom to fit the map nicely in the viewport
+      const mapWidth = mapBounds.width || hexSize * 4; // Fallback for tiny maps
+      const mapHeight = mapBounds.height || hexSize * 4;
+      const viewportWidth = canvasWidth * 0.7; // Use 70% of viewport for padding
+      const viewportHeight = canvasHeight * 0.7;
+      
+      let optimalZoom = 1.0;
+      
+      // Only calculate zoom if map has meaningful size
+      if (mapWidth > hexSize && mapHeight > hexSize) {
+        optimalZoom = Math.min(
+          viewportWidth / mapWidth,
+          viewportHeight / mapHeight,
+          3.0 // Increased cap for small maps
+        );
+      }
+      
+      // For very small maps (single hexagon or tiny clusters), use larger zoom
+      if (hexagons.length <= 5) {
+        optimalZoom = Math.max(optimalZoom, isMobile ? 1.5 : 2.0);
+      } else {
+        optimalZoom = Math.max(optimalZoom, 1.0);
+      }
+      
+      setZoom(optimalZoom);
+      setPanOffset({ x: 0, y: 0 }); // Reset pan to center
+      setIsFirstLoad(false);
+    }
 
     // Apply transformations: translate to center, then apply pan and zoom
     ctx.save();
@@ -119,7 +157,14 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
     // Restore canvas context
     ctx.restore();
 
-  }, [hexagons, hexSize, hoveredHex, zoom, panOffset]);
+  }, [hexagons, hexSize, hoveredHex, zoom, panOffset, isFirstLoad, isMobile]);
+
+  // Reset first load flag when hexagons change (new map generated)
+  useEffect(() => {
+    if (hexagons.length > 0) {
+      setIsFirstLoad(true);
+    }
+  }, [hexagons.length]);
 
   const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -195,8 +240,86 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
   };
 
   const resetView = () => {
-    setZoom(1.0);
-    setPanOffset({ x: 0, y: 0 });
+    // Trigger auto-centering logic
+    setIsFirstLoad(true);
+  };
+
+  // Touch event handlers for mobile support
+  const getTouchDistance = (touch1: React.Touch, touch2: React.Touch) => {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const getTouchCenter = (touch1: React.Touch, touch2: React.Touch) => {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    };
+  };
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    
+    if (event.touches.length === 1) {
+      // Single touch - start panning
+      setIsDragging(true);
+      const touch = event.touches[0];
+      setDragStart({ 
+        x: touch.clientX - panOffset.x, 
+        y: touch.clientY - panOffset.y 
+      });
+    } else if (event.touches.length === 2) {
+      // Two touches - start zooming
+      setIsDragging(false);
+      const distance = getTouchDistance(event.touches[0], event.touches[1]);
+      setLastTouchDistance(distance);
+      
+      // Store initial touch positions for reference if needed
+      getTouchCenter(event.touches[0], event.touches[1]);
+    }
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    
+    if (event.touches.length === 1 && isDragging) {
+      // Single touch - pan
+      const touch = event.touches[0];
+      setPanOffset({
+        x: touch.clientX - dragStart.x,
+        y: touch.clientY - dragStart.y
+      });
+    } else if (event.touches.length === 2 && lastTouchDistance !== null) {
+      // Two touches - zoom
+      const currentDistance = getTouchDistance(event.touches[0], event.touches[1]);
+      const scale = currentDistance / lastTouchDistance;
+      
+      // Apply zoom with limits
+      setZoom(prev => Math.max(0.1, Math.min(3.0, prev * scale)));
+      setLastTouchDistance(currentDistance);
+    }
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    
+    if (event.touches.length === 0) {
+      // All touches ended
+      setIsDragging(false);
+      setLastTouchDistance(null);
+    } else if (event.touches.length === 1) {
+      // One touch remaining, reset for panning
+      setLastTouchDistance(null);
+      if (!isDragging) {
+        setIsDragging(true);
+        const touch = event.touches[0];
+        setDragStart({ 
+          x: touch.clientX - panOffset.x, 
+          y: touch.clientY - panOffset.y 
+        });
+      }
+    }
   };
 
   const takeScreenshot = () => {
@@ -215,7 +338,15 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
   };
 
   return (
-    <div className={className} style={{ position: 'relative' }}>
+    <div className={className} style={{ 
+      position: 'relative', 
+      width: '100%',
+      // Ensure full width on mobile
+      ...(isMobile && { 
+        width: '100%',
+        maxWidth: '100%' 
+      })
+    }}>
       {/* Zoom Controls */}
       <div style={{
         position: 'absolute',
@@ -224,7 +355,7 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
         zIndex: 10,
         display: 'flex',
         flexDirection: 'column',
-        gap: '5px'
+        gap: isMobile ? '8px' : '5px'
       }}>
         <button
           onClick={() => setZoom(prev => Math.min(3.0, prev * 1.2))}
@@ -233,10 +364,12 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
             color: '#000',
             border: 'none',
             borderRadius: '4px',
-            padding: '5px 10px',
+            padding: isMobile ? '10px 14px' : '5px 10px',
             cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 'bold'
+            fontSize: isMobile ? '18px' : '14px',
+            fontWeight: 'bold',
+            minWidth: isMobile ? '44px' : 'auto',
+            minHeight: isMobile ? '44px' : 'auto'
           }}
         >
           +
@@ -248,10 +381,12 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
             color: '#000',
             border: 'none',
             borderRadius: '4px',
-            padding: '5px 10px',
+            padding: isMobile ? '10px 14px' : '5px 10px',
             cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 'bold'
+            fontSize: isMobile ? '18px' : '14px',
+            fontWeight: 'bold',
+            minWidth: isMobile ? '44px' : 'auto',
+            minHeight: isMobile ? '44px' : 'auto'
           }}
         >
           -
@@ -263,10 +398,12 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
             color: '#000',
             border: 'none',
             borderRadius: '4px',
-            padding: '5px 10px',
+            padding: isMobile ? '8px 12px' : '5px 10px',
             cursor: 'pointer',
-            fontSize: '12px',
-            fontWeight: 'bold'
+            fontSize: isMobile ? '14px' : '12px',
+            fontWeight: 'bold',
+            minWidth: isMobile ? '44px' : 'auto',
+            minHeight: isMobile ? '44px' : 'auto'
           }}
         >
           Reset
@@ -278,10 +415,12 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
             color: '#000',
             border: 'none',
             borderRadius: '4px',
-            padding: '5px 10px',
+            padding: isMobile ? '8px 12px' : '5px 10px',
             cursor: 'pointer',
-            fontSize: '12px',
-            fontWeight: 'bold'
+            fontSize: isMobile ? '14px' : '12px',
+            fontWeight: 'bold',
+            minWidth: isMobile ? '44px' : 'auto',
+            minHeight: isMobile ? '44px' : 'auto'
           }}
         >
           📷 Save
@@ -292,13 +431,20 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
       <div
         style={{
           width: '100%',
-          height: '80vh',
+          height: isMobile 
+            ? `${Math.min(windowHeight * 0.55, windowHeight - 280)}px` // Mobile: slightly shorter but full width
+            : isTablet 
+              ? `${Math.min(windowHeight * 0.65, windowHeight - 120)}px` // Tablet: shorter and wider
+              : `${Math.min(windowHeight * 0.70, windowHeight - 100)}px`, // Desktop: shorter and wider
+          minHeight: isMobile ? '280px' : (isTablet ? '400px' : '450px'), // Adjusted minimums for better aspect ratios
+          maxHeight: isMobile ? '60vh' : (isTablet ? '70vh' : '75vh'), // More reasonable maximums
           border: '1px solid #00ffff',
           borderRadius: '4px',
           background: '#000',
           position: 'relative',
           cursor: isDragging ? 'grabbing' : 'grab',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          touchAction: 'none' // Prevent default touch behaviors
         }}
         onWheel={handleWheel}
       >
@@ -308,6 +454,9 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           style={{
             display: 'block',
             background: '#000',
@@ -323,12 +472,19 @@ export const HexagonCanvas: React.FC<HexagonCanvasProps> = ({
         bottom: '10px',
         left: '10px',
         color: '#00ffff88',
-        fontSize: '12px',
-        background: '#00000088',
-        padding: '5px 10px',
-        borderRadius: '4px'
+        fontSize: '11px',
+        background: '#00000aa',
+        padding: '6px 12px',
+        borderRadius: '4px',
+        maxWidth: '280px',
+        lineHeight: '1.3'
       }}>
-        Scroll to zoom • Drag to pan • Hover hexagons for coordinates
+        <div style={{ display: 'block' }}>
+          🖱️ <strong>Desktop:</strong> Scroll to zoom • Drag to pan • Hover for coordinates
+        </div>
+        <div style={{ display: 'block', marginTop: '2px' }}>
+          📱 <strong>Mobile:</strong> Pinch to zoom • Touch drag to pan
+        </div>
       </div>
     </div>
   );

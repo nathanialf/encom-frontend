@@ -7,9 +7,11 @@ React TypeScript application for the ENCOM hexagonal map generator system.
 - **Interactive Hexagonal Map Visualization** - Canvas-based rendering with zoom and pan
 - **Real-time Map Generation** - Connect to AWS Lambda backend for dynamic map creation
 - **Advanced Navigation** - Mouse wheel zoom, click-and-drag panning, reset controls
+- **Touch Support** - Full mobile support with pinch-to-zoom and touch panning
 - **Screenshot Capture** - Export generated maps as PNG images
 - **Hover Interaction** - Display hexagon coordinates and properties
-- **Responsive Design** - Optimized for various screen sizes
+- **Fully Responsive Design** - Optimized layouts for mobile, tablet, and desktop
+- **Auto-Centering** - Smart zoom and positioning for optimal map viewing
 
 ## Architecture
 
@@ -123,10 +125,15 @@ aws s3 sync build/ s3://encom-frontend-prod-us-west-1/ --delete
 
 ### Infrastructure
 
+Frontend hosting infrastructure is now enabled in Terraform:
+
 - **S3 Hosting Bucket**: `encom-frontend-{env}-us-west-1`
-- **S3 Artifacts Bucket**: `encom-build-artifacts-{env}-us-west-1`
-- **CloudFront**: Global CDN distribution
-- **Route53**: Custom domain (when configured)
+- **S3 Artifacts Bucket**: `encom-build-artifacts-{env}-us-west-1` (managed by Terraform)
+- **CloudFront Distribution**: Global CDN with caching and SPA routing
+- **Custom Domain**: `dev.encom.riperoni.com` with automated SSL validation
+- **Route53 DNS**: Automated certificate validation via CNAME records
+- **Origin Access Control**: Secure S3 access via CloudFront only
+- **Custom Error Pages**: 404/403 redirects to index.html for SPA routing
 
 ## Testing
 
@@ -145,11 +152,11 @@ npm test -- --watchAll=false --ci
 
 ### Test Coverage
 
-- **87 tests** across 6 test suites
-- **Component tests**: App, MapControls, MapStatistics
+- **112 tests** across 8 test suites
+- **Component tests**: App, MapControls, MapStatistics, HexagonCanvas
 - **Library tests**: API integration, hexagon mathematics
-- **Hook tests**: Map generation state management
-- **Features tested**: UI interactions, form validation, error handling, coordinate transformations
+- **Hook tests**: Map generation, responsive window dimensions
+- **Features tested**: UI interactions, form validation, error handling, coordinate transformations, responsive design, touch controls
 
 ## Build Analysis
 
