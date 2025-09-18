@@ -84,7 +84,7 @@ describe('MapAPI', () => {
       await ProdMapAPI.generateMap(request);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://encom.riperoni.com/api/v1/map/generate',
+        'https://3901ff1oz1.execute-api.us-west-1.amazonaws.com/prod/api/v1/map/generate',
         expect.any(Object)
       );
     });
