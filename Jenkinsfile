@@ -92,15 +92,33 @@ pipeline {
         
         stage('Build') {
             steps {
-                dir('encom-frontend') {
-                    sh '''
-                        echo "Building application for ${ENVIRONMENT} environment..."
-                        REACT_APP_ENVIRONMENT=${ENVIRONMENT} npm run build
-                        
-                        echo "Build completed. Size: $(du -sh build/ | cut -f1)"
-                        echo "Build contents:"
-                        find build/ -type f -name "*.js" -o -name "*.css" -o -name "*.html" | head -10
-                    '''
+                script {
+                    def buildCommand = "REACT_APP_ENVIRONMENT=${params.ENVIRONMENT}"
+                    
+                    // Add API key for prod environment
+                    if (params.ENVIRONMENT == 'prod') {
+                        withCredentials([string(credentialsId: 'encom-prod-api-key', variable: 'API_KEY')]) {
+                            buildCommand += " REACT_APP_API_KEY=${API_KEY}"
+                            
+                            dir('encom-frontend') {
+                                sh """
+                                    echo "Building application for ${params.ENVIRONMENT} environment..."
+                                    ${buildCommand} npm run build
+                                """
+                            }
+                        }
+                    } else {
+                        dir('encom-frontend') {
+                            sh """
+                                echo "Building application for ${params.ENVIRONMENT} environment..."
+                                ${buildCommand} npm run build
+                                
+                                echo "Build completed. Size: \$(du -sh build/ | cut -f1)"
+                                echo "Build contents:"
+                                find build/ -type f -name "*.js" -o -name "*.css" -o -name "*.html" | head -10
+                            """
+                        }
+                    }
                 }
                 archiveArtifacts artifacts: 'encom-frontend/build/**/*'
                 

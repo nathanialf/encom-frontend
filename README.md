@@ -57,7 +57,7 @@ REACT_APP_ENVIRONMENT=dev
 The app connects to different API endpoints based on environment:
 
 - **Dev**: `https://kxt2knsej3.execute-api.us-west-1.amazonaws.com/dev`
-- **Prod**: `https://encom.riperoni.com` (when configured)
+- **Prod**: `https://3901ff1oz1.execute-api.us-west-1.amazonaws.com/prod`
 
 ## Canvas Controls
 
