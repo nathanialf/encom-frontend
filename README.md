@@ -1,6 +1,71 @@
 # ENCOM Frontend
 
-React TypeScript application for the ENCOM hexagonal map generator system.
+React TypeScript application for the ENCOM hexagonal map generator system with independent Terraform infrastructure management.
+
+## Infrastructure Architecture
+
+### AWS Architecture Overview
+```
+┌─────────────────────────────────┐  ┌─────────────────────────────────┐
+│             DEV                 │  │            PROD                 │
+├─────────────────────────────────┤  ├─────────────────────────────────┤
+│                                 │  │                                 │
+│  ┌─────────────────────┐       │  │  ┌─────────────────────┐       │
+│  │   CloudFront        │       │  │  │   CloudFront        │       │
+│  │ d2x37w9ikau35g...   │       │  │  │ d1ttgjhhkt33s5...   │       │
+│  │ Default Domain      │       │  │  │ encom.riperoni.com  │       │
+│  │ No SSL Cert         │       │  │  │ ACM Certificate     │       │
+│  └─────────────────────┘       │  │  └─────────────────────┘       │
+│            │                   │  │            │                   │
+│  ┌─────────────────────┐       │  │  ┌─────────────────────┐       │
+│  │   Origin Access     │       │  │  │   Origin Access     │       │
+│  │   Control (OAC)     │       │  │  │   Control (OAC)     │       │
+│  └─────────────────────┘       │  │  └─────────────────────┘       │
+│            │                   │  │            │                   │
+│  ┌─────────────────────┐       │  │  ┌─────────────────────┐       │
+│  │   S3 Bucket         │       │  │  │   S3 Bucket         │       │
+│  │encom-frontend-dev-  │       │  │encom-frontend-prod-   │       │
+│  │us-west-1            │       │  │us-west-1             │       │
+│  │Versioning: Enabled  │       │  │Versioning: Enabled   │       │
+│  │Encryption: AES256   │       │  │Encryption: AES256    │       │
+│  │Public Access: Block │       │  │Public Access: Block  │       │
+│  └─────────────────────┘       │  │  └─────────────────────┘       │
+│                                 │  │            │                   │
+└─────────────────────────────────┘  │  ┌─────────────────────┐       │
+                                     │  │   Route53           │       │
+                                     │  │ encom.riperoni.com  │       │
+                                     │  │ A Record → CF       │       │
+                                     │  │ CNAME → Cert Valid  │       │
+                                     │  └─────────────────────┘       │
+                                     │            │                   │
+                                     │  ┌─────────────────────┐       │
+                                     │  │   ACM Certificate   │       │
+                                     │  │ us-east-1 Region    │       │
+                                     │  │ DNS Validation      │       │
+                                     │  └─────────────────────┘       │
+                                     └─────────────────────────────────┘
+
+         ┌─────────────────────┐              ┌─────────────────────┐
+         │   Terraform State   │              │   Terraform State   │
+         │dev-encom-frontend-  │              │prod-encom-frontend- │
+         │terraform-state      │              │terraform-state      │
+         │    (S3 Bucket)      │              │    (S3 Bucket)      │
+         └─────────────────────┘              └─────────────────────┘
+```
+
+### Application Architecture
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│     Users       │───▶│   CloudFront     │───▶│   S3 Hosting    │
+│ (Web Browsers)  │    │   (Global CDN)   │    │   (Static Web)  │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                │                        │
+                                ▼                        ▼
+                       ┌──────────────────┐    ┌─────────────────┐
+                       │   API Gateway    │    │ React TypeScript│
+                       │ (ENCOM Lambda)   │    │   Application   │
+                       └──────────────────┘    └─────────────────┘
+```
 
 ## Features
 
@@ -13,13 +78,14 @@ React TypeScript application for the ENCOM hexagonal map generator system.
 - **Fully Responsive Design** - Optimized layouts for mobile, tablet, and desktop
 - **Intelligent Auto-Centering** - Bounding box algorithm ensures entire map is always visible with optimal zoom
 
-## Architecture
+## Technology Stack
 
 - **React 18** with TypeScript
 - **Canvas API** for hexagon rendering and interactions
 - **Tabler Icons** for professional, consistent iconography
 - **REST API** integration with AWS Lambda backend
 - **S3 + CloudFront** deployment for global CDN
+- **Independent Terraform Infrastructure** with modular configuration
 
 ## Development
 
@@ -77,6 +143,74 @@ The app connects to different API endpoints based on environment:
 - **Reset Icon Button**: Return to optimal view
 - **Camera Icon Button**: Download screenshot
 
+## Infrastructure Management
+
+### Terraform Structure
+```
+terraform/
+├── bootstrap/              # State bucket creation
+├── modules/
+│   ├── s3/                 # S3 hosting bucket module
+│   ├── cloudfront/         # CloudFront CDN module
+│   └── route53/            # DNS and SSL certificate module
+└── environments/
+    ├── dev/                # Development environment
+    └── prod/               # Production environment
+```
+
+### Deployment Pipeline
+The project uses Jenkins for CI/CD with three main actions:
+
+1. **Bootstrap**: Create S3 state bucket for terraform
+2. **Plan**: Run terraform plan to preview changes
+3. **Apply**: Apply terraform changes to deploy infrastructure
+
+### Environment Configuration
+
+#### Development
+- **State Bucket**: `dev-encom-frontend-terraform-state`
+- **Hosting Bucket**: `encom-frontend-dev-us-west-1`
+- **CloudFront**: Default domain only (no custom DNS)
+- **Authentication**: None
+- **Website URL**: `https://d2x37w9ikau35g.cloudfront.net`
+
+#### Production
+- **State Bucket**: `prod-encom-frontend-terraform-state`
+- **Hosting Bucket**: `encom-frontend-prod-us-west-1`
+- **CloudFront**: Custom domain with SSL certificate
+- **Custom Domain**: `encom.riperoni.com`
+- **SSL Certificate**: ACM certificate in us-east-1
+- **Route53**: Managed DNS with automatic certificate validation
+- **Website URL**: `https://encom.riperoni.com`
+
+### Infrastructure Deployment
+
+```bash
+# Bootstrap state bucket (first time only)
+cd terraform/environments/dev
+terraform init
+terraform apply -var="environment=dev"
+
+# Deploy infrastructure changes
+terraform plan    # Review changes
+terraform apply   # Deploy changes
+```
+
+### Manual Deployment
+
+```bash
+# Build production bundle
+REACT_APP_ENVIRONMENT=prod npm run build
+
+# Deploy to S3 (requires AWS credentials)
+aws s3 sync build/ s3://encom-frontend-prod-us-west-1/ --delete
+
+# Invalidate CloudFront cache
+aws cloudfront create-invalidation \
+    --distribution-id E6Z3HPJJYYP2V \
+    --paths "/*"
+```
+
 ## Map Generation
 
 ### Request Format
@@ -110,71 +244,6 @@ The app connects to different API endpoints based on environment:
 }
 ```
 
-## Deployment
-
-### CI/CD Pipeline
-
-Jenkins pipeline automatically:
-
-1. **Install** dependencies and run security audit
-2. **Test** with Jest and coverage reporting
-3. **Lint** TypeScript and ESLint validation
-4. **Build** optimized production bundle
-5. **Archive** versioned tarball to S3 artifacts bucket
-6. **Deploy** static files to S3 hosting bucket
-7. **Invalidate** CloudFront cache for immediate content updates
-
-### Manual Deployment
-
-```bash
-# Build production bundle
-REACT_APP_ENVIRONMENT=prod npm run build
-
-# Deploy to S3 (requires AWS credentials)
-aws s3 sync build/ s3://encom-frontend-prod-us-west-1/ --delete
-```
-
-### Infrastructure
-
-Frontend hosting infrastructure is now enabled in Terraform:
-
-- **S3 Hosting Bucket**: `encom-frontend-{env}-us-west-1`
-- **S3 Artifacts Bucket**: `encom-build-artifacts-{env}-us-west-1` (managed by Terraform)
-- **CloudFront Distribution**: Global CDN with caching and SPA routing
-- **Custom Domain**: `dev.encom.riperoni.com` with automated SSL validation
-- **Route53 DNS**: Automated certificate validation via CNAME records
-- **Origin Access Control**: Secure S3 access via CloudFront only
-- **Custom Error Pages**: 404/403 redirects to index.html for SPA routing
-
-### CloudFront Cache Invalidation
-
-The deployment pipeline automatically invalidates CloudFront cache after successful S3 deployment:
-
-- **Automatic Detection**: Finds CloudFront distribution by S3 origin domain
-- **Full Invalidation**: Clears all paths (`/*`) for immediate content updates
-- **Error Resilient**: Deployment succeeds even if invalidation fails
-- **Cache Clear Time**: 1-5 minutes for global propagation
-- **Cost Efficient**: Uses free tier (1,000 invalidations/month)
-
-```bash
-# Manual invalidation (if needed)
-aws cloudfront create-invalidation \
-    --distribution-id DISTRIBUTION_ID \
-    --paths "/*"
-```
-
-#### Jenkins Credential Setup
-
-The pipeline requires CloudFront distribution IDs to be configured as Jenkins credentials:
-
-1. **Get Distribution ID**: Find in AWS Console → CloudFront → Distributions
-2. **Add Jenkins Credential**: Manage Jenkins → Manage Credentials → Add Secret Text
-3. **Required Credentials**:
-   - `cloudfront-dev-distribution-id` - Dev environment distribution ID
-   - `cloudfront-prod-distribution-id` - Prod environment distribution ID
-
-**IMPORTANT**: When setting up production environment, update the `cloudfront-prod-distribution-id` credential with the actual production CloudFront distribution ID.
-
 ## Testing
 
 Comprehensive test suite with full coverage of all components and functionality.
@@ -198,17 +267,33 @@ npm test -- --watchAll=false --ci
 - **Hook tests**: Map generation, responsive window dimensions
 - **Features tested**: UI interactions, form validation, error handling, coordinate transformations, responsive design, touch controls
 
-## Build Analysis
+## Security
 
-```bash
-# Analyze bundle size
-npm run build
-npx serve -s build
+- **S3 Bucket Security**: All public access blocked, CloudFront-only access via OAC
+- **CloudFront Security**: HTTPS redirect enforced, secure origin access
+- **SSL Certificates**: Managed by ACM with DNS validation
+- **IAM Roles**: Minimal permissions following principle of least privilege
+- **Terraform State**: Encrypted S3 buckets with versioning enabled
 
-# Check bundle composition
-du -sh build/
-find build/ -name "*.js" -o -name "*.css" | head -10
-```
+## Monitoring & Logging
+
+### CloudFront Metrics
+- Request count and error rates
+- Cache hit ratios and performance
+- Geographic distribution of requests
+
+### S3 Metrics
+- Storage usage and object counts
+- Request metrics and error rates
+
+## Performance
+
+- **Bundle Size**: ~2MB (including React)
+- **Load Time**: <3s on 3G connection
+- **Canvas Performance**: 60fps with 1000+ hexagons
+- **Memory Usage**: <50MB for large maps
+- **CDN Performance**: Global edge locations for optimal delivery
+- **Cache Strategy**: Static assets cached for 1 year, HTML cached for 1 hour
 
 ## Browser Support
 
@@ -217,18 +302,13 @@ find build/ -name "*.js" -o -name "*.css" | head -10
 - Safari 14+
 - Edge 90+
 
-## Performance
-
-- **Bundle Size**: ~2MB (including React)
-- **Load Time**: <3s on 3G connection
-- **Canvas Performance**: 60fps with 1000+ hexagons
-- **Memory Usage**: <50MB for large maps
-- **Mobile Optimization**: Stable canvas sizing prevents scroll distortions
-- **Touch Response**: <10ms tap detection with coordinate transformation
-
 ## Contributing
 
 1. Create feature branch from `main`
 2. Make changes with tests
 3. Run `npm test` and `npm run build`
 4. Submit pull request
+
+---
+
+**Part of the ENCOM Project**: This frontend application provides visualization for hexagonal maps generated by the ENCOM Lambda service, with independent infrastructure management for scalable deployment.

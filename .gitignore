@@ -36,3 +36,6 @@ pids
 # Cache
 .eslintcache
 .stylelintcache
+
+# Terraform
+**/.terraform/*

@@ -1,0 +1,6 @@
+environment         = "prod"
+aws_region          = "us-west-1"
+project_name        = "encom-frontend"
+hosting_bucket_name = "encom-frontend-prod-us-west-1"
+hosted_zone_name    = "encom.riperoni.com"
+domain_name         = "encom.riperoni.com"

@@ -1,212 +1,99 @@
 pipeline {
-    agent {
-        node {
-            label 'any'
-            customWorkspace '/var/lib/jenkins/workspace/ENCOM-Shared'
-        }
-    }
-    
-    options {
-        skipDefaultCheckout(true)
-    }
+    agent any
     
     parameters {
         choice(
             name: 'ENVIRONMENT',
             choices: ['dev', 'prod'],
-            description: 'Target environment for frontend deployment'
+            description: 'Target environment for infrastructure deployment'
+        )
+        choice(
+            name: 'ACTION',
+            choices: ['bootstrap', 'plan', 'apply'],
+            description: 'Action to perform (bootstrap=create state bucket, plan=terraform plan, apply=terraform apply)'
         )
     }
     
     environment {
         AWS_REGION = 'us-west-1'
         PROJECT_NAME = 'encom-frontend'
-        CI = 'true'
-    }
-    
-    tools {
-        nodejs 'NodeJS-18'
     }
     
     stages {
         stage('Checkout') {
             steps {
-                // Checkout frontend code to subdirectory to preserve shared workspace
-                dir('encom-frontend') {
-                    checkout scm
-                }
+                checkout scm
+            }
+        }
+        
+        stage('Setup AWS Credentials') {
+            steps {
                 script {
-                    def gitCommit = sh(script: 'cd encom-frontend && git rev-parse HEAD', returnStdout: true).trim()
-                    env.BUILD_VERSION = "${env.BUILD_NUMBER}-${gitCommit.take(7)}"
+                    env.AWS_PROFILE = params.ENVIRONMENT == 'prod' ? 'encom-prod' : 'encom-dev'
+                    echo "Using AWS profile: ${env.AWS_PROFILE}"
                 }
             }
         }
         
-        stage('Install Dependencies') {
-            steps {
-                dir('encom-frontend') {
-                    sh '''
-                        echo "Node.js version: $(node --version)"
-                        echo "npm version: $(npm --version)"
-                        npm ci
-                    '''
-                }
+        stage('Bootstrap') {
+            when {
+                expression { params.ACTION == 'bootstrap' }
             }
-        }
-        
-        stage('Lint & Type Check') {
             steps {
-                dir('encom-frontend') {
+                dir('terraform/bootstrap') {
                     sh '''
-                        echo "Running ESLint..."
-                        npx eslint src/ --ext .ts,.tsx
+                        echo "Bootstrapping Terraform state bucket for ${ENVIRONMENT}"
+                        export AWS_PROFILE=${AWS_PROFILE}
+                        export AWS_REGION=${AWS_REGION}
                         
-                        echo "Running TypeScript compiler check..."
-                        npx tsc --noEmit
+                        terraform init
+                        terraform plan -var="environment=${ENVIRONMENT}" -var="aws_region=${AWS_REGION}" -no-color
+                        terraform apply -var="environment=${ENVIRONMENT}" -var="aws_region=${AWS_REGION}" -auto-approve -no-color
+                        
+                        echo "Bootstrap completed for ${ENVIRONMENT} environment"
                     '''
                 }
             }
         }
         
-        stage('Test') {
+        stage('Terraform Plan') {
+            when {
+                expression { params.ACTION == 'plan' }
+            }
             steps {
-                dir('encom-frontend') {
+                dir("terraform/environments/${params.ENVIRONMENT}") {
                     sh '''
-                        echo "Running unit tests..."
-                        npm test -- --coverage --watchAll=false --ci
+                        echo "Running Terraform plan for ${ENVIRONMENT}"
+                        export AWS_PROFILE=${AWS_PROFILE}
+                        export AWS_REGION=${AWS_REGION}
+                        
+                        terraform init
+                        terraform plan -no-color
+                        
+                        echo "Plan completed for ${ENVIRONMENT} environment"
                     '''
                 }
             }
         }
         
-        stage('Security Audit') {
+        stage('Terraform Apply') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
-                dir('encom-frontend') {
+                dir("terraform/environments/${params.ENVIRONMENT}") {
                     sh '''
-                        echo "Running security audit..."
-                        npm audit --audit-level high || echo "Security audit completed with warnings"
+                        echo "Applying Terraform changes for ${ENVIRONMENT}"
+                        export AWS_PROFILE=${AWS_PROFILE}
+                        export AWS_REGION=${AWS_REGION}
+                        
+                        terraform init
+                        terraform apply -auto-approve -no-color
+                        
+                        echo "Apply completed for ${ENVIRONMENT} environment"
+                        echo "Outputs:"
+                        terraform output -no-color
                     '''
-                }
-            }
-        }
-        
-        stage('Build') {
-            steps {
-                script {
-                    def buildCommand = "REACT_APP_ENVIRONMENT=${params.ENVIRONMENT}"
-                    
-                    // Add API key for prod environment
-                    if (params.ENVIRONMENT == 'prod') {
-                        withCredentials([string(credentialsId: 'encom-prod-api-key', variable: 'API_KEY')]) {
-                            buildCommand += " REACT_APP_API_KEY=${API_KEY}"
-                            
-                            dir('encom-frontend') {
-                                sh """
-                                    echo "Building application for ${params.ENVIRONMENT} environment..."
-                                    ${buildCommand} npm run build
-                                """
-                            }
-                        }
-                    } else {
-                        dir('encom-frontend') {
-                            sh """
-                                echo "Building application for ${params.ENVIRONMENT} environment..."
-                                ${buildCommand} npm run build
-                                
-                                echo "Build completed. Size: \$(du -sh build/ | cut -f1)"
-                                echo "Build contents:"
-                                find build/ -type f -name "*.js" -o -name "*.css" -o -name "*.html" | head -10
-                            """
-                        }
-                    }
-                }
-                archiveArtifacts artifacts: 'encom-frontend/build/**/*'
-                
-                // Upload versioned tarball to artifacts bucket AND deploy to hosting bucket
-                script {
-                    def awsCredentials = params.ENVIRONMENT == 'prod' ? 'aws-encom-prod' : 'aws-encom-dev'
-                    
-                    withAWS(credentials: awsCredentials, region: env.AWS_REGION) {
-                        script {
-                            def artifactsBucket = "encom-build-artifacts-${params.ENVIRONMENT}-us-west-1"
-                            def hostingBucket = "encom-frontend-${params.ENVIRONMENT}-us-west-1"
-                            def s3KeyPrefix = "artifacts/frontend/encom-frontend-${env.BUILD_VERSION}"
-                            
-                            echo "Using artifacts bucket: ${artifactsBucket}"
-                            echo "Using hosting bucket: ${hostingBucket}"
-                            
-                            // Create a tarball for versioned storage
-                            sh '''
-                                cd encom-frontend
-                                tar -czf ../encom-frontend-${BUILD_VERSION}.tar.gz -C build .
-                                echo "Created tarball: encom-frontend-${BUILD_VERSION}.tar.gz"
-                                echo "Tarball size: $(du -sh ../encom-frontend-${BUILD_VERSION}.tar.gz | cut -f1)"
-                            '''
-                            
-                            // Upload versioned tarball to artifacts bucket
-                            s3Upload bucket: artifactsBucket,
-                                    file: "encom-frontend-${env.BUILD_VERSION}.tar.gz",
-                                    path: "${s3KeyPrefix}.tar.gz"
-                            
-                            s3Upload bucket: artifactsBucket,
-                                    file: "encom-frontend-${env.BUILD_VERSION}.tar.gz",
-                                    path: "artifacts/frontend/encom-frontend-latest.tar.gz"
-                            
-                            echo "Tarball uploaded to artifacts: s3://${artifactsBucket}/${s3KeyPrefix}.tar.gz"
-                            
-                            // Deploy build directory directly to hosting bucket
-                            echo "Deploying to hosting bucket: ${hostingBucket}"
-                            s3Upload bucket: hostingBucket,
-                                    includePathPattern: '**/*',
-                                    workingDir: 'encom-frontend/build',
-                                    path: ''
-                            
-                            echo "Frontend deployed successfully!"
-                            echo "Website URL: https://${hostingBucket}.s3-website-${AWS_REGION}.amazonaws.com"
-                            
-                            // Create CloudFront invalidation using Jenkins AWS plugin
-                            script {
-                                try {
-                                    echo "Finding CloudFront distribution for bucket: ${hostingBucket}"
-                                    
-                                    // Load the appropriate credential based on environment
-                                    def credentialId = params.ENVIRONMENT == 'prod' ? 
-                                        'cloudfront-prod-distribution-id' : 
-                                        'cloudfront-dev-distribution-id'
-                                    
-                                    def distributionId = null
-                                    
-                                    // Try to load the credential
-                                    try {
-                                        withCredentials([string(credentialsId: credentialId, variable: 'DISTRIBUTION_ID')]) {
-                                            distributionId = env.DISTRIBUTION_ID
-                                        }
-                                    } catch (Exception credError) {
-                                        echo "Warning: CloudFront distribution credential '${credentialId}' not found: ${credError.message}"
-                                    }
-                                    
-                                    if (distributionId) {
-                                        echo "Using CloudFront distribution: ${distributionId}"
-                                        
-                                        // Create invalidation using Jenkins AWS plugin
-                                        cfInvalidate(
-                                            distribution: distributionId,
-                                            paths: ['/*']
-                                        )
-                                        
-                                        echo "CloudFront invalidation created successfully"
-                                        echo "Cache will be cleared in 1-5 minutes"
-                                    } else {
-                                        echo "Warning: CloudFront distribution ID not configured for ${params.ENVIRONMENT}"
-                                        echo "Please configure Jenkins credential '${credentialId}' with the CloudFront distribution ID"
-                                    }
-                                } catch (Exception e) {
-                                    echo "Warning: CloudFront invalidation failed: ${e.message}"
-                                    // Don't fail the build for invalidation issues
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -214,13 +101,13 @@ pipeline {
     
     post {
         always {
+            cleanWs()
+        }
+        success {
             script {
-                echo "Frontend build complete. Build artifacts uploaded to S3 and ready for deployment."
-                echo "Run ENCOM-Infrastructure pipeline to deploy frontend infrastructure with latest build."
-                try {
-                    cleanWs()
-                } catch (Exception e) {
-                    echo "Warning: Workspace cleanup failed: ${e.message}"
+                if (params.ACTION == 'apply') {
+                    echo "Infrastructure deployment successful for ${params.ENVIRONMENT}"
+                    echo "Frontend infrastructure is ready for deployment"
                 }
             }
         }
