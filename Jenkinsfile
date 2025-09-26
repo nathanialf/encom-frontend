@@ -26,32 +26,25 @@ pipeline {
             }
         }
         
-        stage('Setup AWS Credentials') {
-            steps {
-                script {
-                    env.AWS_PROFILE = params.ENVIRONMENT == 'prod' ? 'encom-prod' : 'encom-dev'
-                    echo "Using AWS profile: ${env.AWS_PROFILE}"
-                }
-            }
-        }
-        
         stage('Bootstrap') {
             when {
                 expression { params.ACTION == 'bootstrap' }
             }
             steps {
-                dir('terraform/bootstrap') {
-                    sh '''
-                        echo "Bootstrapping Terraform state bucket for ${ENVIRONMENT}"
-                        export AWS_PROFILE=${AWS_PROFILE}
-                        export AWS_REGION=${AWS_REGION}
-                        
-                        terraform init
-                        terraform plan -var="environment=${ENVIRONMENT}" -var="aws_region=${AWS_REGION}" -no-color
-                        terraform apply -var="environment=${ENVIRONMENT}" -var="aws_region=${AWS_REGION}" -auto-approve -no-color
-                        
-                        echo "Bootstrap completed for ${ENVIRONMENT} environment"
-                    '''
+                script {
+                    def awsCredentials = params.ENVIRONMENT == 'prod' ? 'aws-encom-prod' : 'aws-encom-dev'
+                    
+                    withAWS(credentials: awsCredentials, region: env.AWS_REGION) {
+                        dir("terraform/bootstrap") {
+                            sh """
+                                echo "Bootstrapping Terraform state backend for ${params.ENVIRONMENT}..."
+                                terraform init
+                                terraform plan -var="environment=${params.ENVIRONMENT}" -var="aws_region=${env.AWS_REGION}" -out=bootstrap-plan
+                                terraform apply bootstrap-plan
+                                echo "Bootstrap completed for ${params.ENVIRONMENT} environment"
+                            """
+                        }
+                    }
                 }
             }
         }
@@ -61,17 +54,20 @@ pipeline {
                 expression { params.ACTION == 'plan' }
             }
             steps {
-                dir("terraform/environments/${params.ENVIRONMENT}") {
-                    sh '''
-                        echo "Running Terraform plan for ${ENVIRONMENT}"
-                        export AWS_PROFILE=${AWS_PROFILE}
-                        export AWS_REGION=${AWS_REGION}
-                        
-                        terraform init
-                        terraform plan -no-color
-                        
-                        echo "Plan completed for ${ENVIRONMENT} environment"
-                    '''
+                script {
+                    def awsCredentials = params.ENVIRONMENT == 'prod' ? 'aws-encom-prod' : 'aws-encom-dev'
+                    
+                    withAWS(credentials: awsCredentials, region: env.AWS_REGION) {
+                        dir("terraform/environments/${params.ENVIRONMENT}") {
+                            sh '''
+                                echo "Initializing Terraform..."
+                                terraform init
+                                echo "Planning Terraform changes..."
+                                terraform plan -var-file=terraform.tfvars -out=tfplan
+                                echo "Plan completed for ${ENVIRONMENT} environment"
+                            '''
+                        }
+                    }
                 }
             }
         }
@@ -81,19 +77,22 @@ pipeline {
                 expression { params.ACTION == 'apply' }
             }
             steps {
-                dir("terraform/environments/${params.ENVIRONMENT}") {
-                    sh '''
-                        echo "Applying Terraform changes for ${ENVIRONMENT}"
-                        export AWS_PROFILE=${AWS_PROFILE}
-                        export AWS_REGION=${AWS_REGION}
-                        
-                        terraform init
-                        terraform apply -auto-approve -no-color
-                        
-                        echo "Apply completed for ${ENVIRONMENT} environment"
-                        echo "Outputs:"
-                        terraform output -no-color
-                    '''
+                script {
+                    def awsCredentials = params.ENVIRONMENT == 'prod' ? 'aws-encom-prod' : 'aws-encom-dev'
+                    
+                    withAWS(credentials: awsCredentials, region: env.AWS_REGION) {
+                        dir("terraform/environments/${params.ENVIRONMENT}") {
+                            sh '''
+                                echo "Initializing Terraform..."
+                                terraform init
+                                echo "Applying Terraform changes..."
+                                terraform apply -auto-approve -var-file=terraform.tfvars
+                                echo "Apply completed for ${ENVIRONMENT} environment"
+                                echo "Outputs:"
+                                terraform output -no-color
+                            '''
+                        }
+                    }
                 }
             }
         }
