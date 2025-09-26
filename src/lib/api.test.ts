@@ -40,7 +40,7 @@ describe('MapAPI', () => {
       const result = await MapAPI.generateMap(request);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://kxt2knsej3.execute-api.us-west-1.amazonaws.com/dev/api/v1/map/generate',
+        'https://encom-api-dev.riperoni.com/api/v1/map/generate',
         {
           method: 'POST',
           headers: {
@@ -63,7 +63,7 @@ describe('MapAPI', () => {
       await MapAPI.generateMap(request);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('kxt2knsej3.execute-api.us-west-1.amazonaws.com/dev'),
+        expect.stringContaining('encom-api-dev.riperoni.com'),
         expect.any(Object)
       );
     });
@@ -84,7 +84,7 @@ describe('MapAPI', () => {
       await ProdMapAPI.generateMap(request);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://3901ff1oz1.execute-api.us-west-1.amazonaws.com/prod/api/v1/map/generate',
+        'https://encom-api.riperoni.com/api/v1/map/generate',
         expect.any(Object)
       );
     });

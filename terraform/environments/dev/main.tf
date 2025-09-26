@@ -26,16 +26,46 @@ provider "aws" {
   }
 }
 
+# Provider alias for us-east-1 (required for ACM certificates used with CloudFront)
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
 
-# CloudFront module (no custom domain for dev)
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    }
+  }
+}
+
+
+# Route53 module (creates certificate and DNS records for dev)
+module "route53" {
+  source = "../../modules/route53"
+  providers = {
+    aws.us_east_1 = aws.us_east_1
+  }
+
+  project_name              = var.project_name
+  environment               = var.environment
+  create_dns_records        = true
+  hosted_zone_name          = var.hosted_zone_name
+  domain_name               = var.domain_name
+  cloudfront_domain_name    = module.cloudfront.distribution_domain_name
+  cloudfront_hosted_zone_id = module.cloudfront.distribution_hosted_zone_id
+}
+
+# CloudFront module (with custom domain for dev)
 module "cloudfront" {
   source = "../../modules/cloudfront"
 
   project_name                    = var.project_name
   environment                     = var.environment
   s3_bucket_regional_domain_name  = module.s3.hosting_bucket_regional_domain_name
-  domain_name                     = null  # No custom domain for dev
-  ssl_certificate_arn             = null  # No SSL cert for dev
+  domain_name                     = var.domain_name
+  ssl_certificate_arn             = module.route53.certificate_validation_arn
 }
 
 # S3 module

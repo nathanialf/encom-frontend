@@ -1,8 +1,8 @@
 import { MapResponse, MapGenerationRequest } from '../types/map';
 
 const API_ENDPOINTS = {
-  dev: 'https://kxt2knsej3.execute-api.us-west-1.amazonaws.com/dev',
-  prod: 'https://3901ff1oz1.execute-api.us-west-1.amazonaws.com/prod'
+  dev: 'https://encom-api-dev.riperoni.com',
+  prod: 'https://encom-api.riperoni.com'
 } as const;
 
 const API_KEYS = {

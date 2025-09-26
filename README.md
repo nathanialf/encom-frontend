@@ -13,8 +13,8 @@ React TypeScript application for the ENCOM hexagonal map generator system with i
 │  ┌─────────────────────┐       │  │  ┌─────────────────────┐       │
 │  │   CloudFront        │       │  │  │   CloudFront        │       │
 │  │ d2x37w9ikau35g...   │       │  │  │ d1ttgjhhkt33s5...   │       │
-│  │ Default Domain      │       │  │  │ encom.riperoni.com  │       │
-│  │ No SSL Cert         │       │  │  │ ACM Certificate     │       │
+│  │encom-dev.riperoni.  │       │  │  │ encom.riperoni.com  │       │
+│  │com ACM Certificate  │       │  │  │ ACM Certificate     │       │
 │  └─────────────────────┘       │  │  └─────────────────────┘       │
 │            │                   │  │            │                   │
 │  ┌─────────────────────┐       │  │  ┌─────────────────────┐       │
@@ -30,20 +30,20 @@ React TypeScript application for the ENCOM hexagonal map generator system with i
 │  │Encryption: AES256   │       │  │Encryption: AES256    │       │
 │  │Public Access: Block │       │  │Public Access: Block  │       │
 │  └─────────────────────┘       │  │  └─────────────────────┘       │
-│                                 │  │            │                   │
-└─────────────────────────────────┘  │  ┌─────────────────────┐       │
-                                     │  │   Route53           │       │
-                                     │  │ encom.riperoni.com  │       │
-                                     │  │ A Record → CF       │       │
-                                     │  │ CNAME → Cert Valid  │       │
-                                     │  └─────────────────────┘       │
-                                     │            │                   │
-                                     │  ┌─────────────────────┐       │
-                                     │  │   ACM Certificate   │       │
-                                     │  │ us-east-1 Region    │       │
-                                     │  │ DNS Validation      │       │
-                                     │  └─────────────────────┘       │
-                                     └─────────────────────────────────┘
+│            │                   │  │            │                   │
+│  ┌─────────────────────┐       │  │  ┌─────────────────────┐       │
+│  │   Route53           │       │  │  │   Route53           │       │
+│  │encom-dev.riperoni.  │       │  │  │ encom.riperoni.com  │       │
+│  │com A Record → CF    │       │  │  │ A Record → CF       │       │
+│  │CNAME → Cert Valid   │       │  │  │ CNAME → Cert Valid  │       │
+│  └─────────────────────┘       │  │  └─────────────────────┘       │
+│            │                   │  │            │                   │
+│  ┌─────────────────────┐       │  │  ┌─────────────────────┐       │
+│  │   ACM Certificate   │       │  │  │   ACM Certificate   │       │
+│  │ us-east-1 Region    │       │  │  │ us-east-1 Region    │       │
+│  │ DNS Validation      │       │  │  │ DNS Validation      │       │
+│  └─────────────────────┘       │  │  └─────────────────────┘       │
+└─────────────────────────────────┘  └─────────────────────────────────┘
 
          ┌─────────────────────┐              ┌─────────────────────┐
          │   Terraform State   │              │   Terraform State   │
@@ -122,8 +122,8 @@ REACT_APP_ENVIRONMENT=dev
 
 The app connects to different API endpoints based on environment:
 
-- **Dev**: `https://kxt2knsej3.execute-api.us-west-1.amazonaws.com/dev`
-- **Prod**: `https://3901ff1oz1.execute-api.us-west-1.amazonaws.com/prod`
+- **Dev**: `https://encom-api-dev.riperoni.com`
+- **Prod**: `https://encom-api.riperoni.com`
 
 ## Canvas Controls
 
@@ -170,14 +170,15 @@ The project uses Jenkins for CI/CD with three main actions:
 #### Development
 - **State Bucket**: `dev-encom-frontend-terraform-state`
 - **Hosting Bucket**: `encom-frontend-dev-us-west-1`
-- **CloudFront**: Default domain only (no custom DNS)
+- **Custom Domain**: `encom-dev.riperoni.com`
+- **SSL Certificate**: ACM certificate in us-east-1
+- **Route53**: Managed DNS with automatic certificate validation
 - **Authentication**: None
-- **Website URL**: `https://d2x37w9ikau35g.cloudfront.net`
+- **Website URL**: `https://encom-dev.riperoni.com`
 
 #### Production
 - **State Bucket**: `prod-encom-frontend-terraform-state`
 - **Hosting Bucket**: `encom-frontend-prod-us-west-1`
-- **CloudFront**: Custom domain with SSL certificate
 - **Custom Domain**: `encom.riperoni.com`
 - **SSL Certificate**: ACM certificate in us-east-1
 - **Route53**: Managed DNS with automatic certificate validation

@@ -22,3 +22,15 @@ variable "hosting_bucket_name" {
   default     = "encom-frontend-dev-us-west-1"
 }
 
+variable "hosted_zone_name" {
+  description = "Name of the Route53 hosted zone"
+  type        = string
+  default     = "encom-dev.riperoni.com"
+}
+
+variable "domain_name" {
+  description = "Domain name for the frontend"
+  type        = string
+  default     = "encom-dev.riperoni.com"
+}
+
