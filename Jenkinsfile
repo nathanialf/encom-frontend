@@ -19,6 +19,10 @@ pipeline {
         PROJECT_NAME = 'encom-frontend'
     }
     
+    tools {
+        terraform 'Terraform-1.5'
+    }
+    
     stages {
         stage('Checkout') {
             steps {
